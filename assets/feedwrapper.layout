@@ -1,5 +1,5 @@
 WrapSpacerWidgetClass rootFrame {
- position 30 100
+ position 0 100
  size 1 100
  halign right_ref
  hexactpos 1

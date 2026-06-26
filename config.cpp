@@ -9,7 +9,7 @@
 
 class CfgPatches
 {
-	class PeppersKillfeed
+	class DAFImprovements
 	{
 		units[] = {};
 		weapons[] = {};
@@ -19,14 +19,14 @@ class CfgPatches
 };
 class CfgMods
 {
-	class PeppersKillfeed
+	class DAFImprovements
 	{
-		dir = "PeppersKillfeed";
+		dir = "DAFImprovements";
 		picture = "";
 		action = "";
 		hideName = 1;
 		hidePicture = 1;
-		name = "PeppersKillfeed";
+		name = "DAF Improvements";
 		credits = "";
 		author = "";
 		authorID = "0";
@@ -39,7 +39,12 @@ class CfgMods
 			class worldScriptModule
 			{
 				value = "";
-				files[] = {"PeppersKillfeed/scripts/4_World"};
+				files[] = {"DAFImprovements/scripts/4_World"};
+			};
+			class missionScriptModule
+			{
+				value = "";
+				files[] = {"DAFImprovements/scripts/5_Mission"};
 			};
 		};
 	};

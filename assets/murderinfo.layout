@@ -15,7 +15,7 @@ WrapSpacerWidgetClass MurderInfoWrap {
  {
   GridSpacerWidgetClass Background {
    clipchildren 1
-   color 0.2118 0.2118 0.2118 0.3333
+   color 0.3059 0.3059 0.3059 0.2627
    size 1500 35
    halign right_ref
    hexactpos 1
@@ -82,7 +82,7 @@ WrapSpacerWidgetClass MurderInfoWrap {
     TextWidgetClass KillDst {
      ignorepointer 1
      position 0 0
-     size 85 30
+     size 110 30
      hexactpos 0
      vexactpos 0
      hexactsize 1

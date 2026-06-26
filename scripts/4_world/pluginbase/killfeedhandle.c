@@ -1,15 +1,22 @@
 class KillFeedHandle : PluginBase
 {
 	private ref array<ref KillFeedDeathType> KillFeedPhrases;
+	private ref TStringIntMap RoundKills;
+	private ref TStringIntMap RoundDeaths;
 
 	void KillFeedHandle()
 	{
+		RoundKills = new TStringIntMap();
+		RoundDeaths = new TStringIntMap();
 		LoadPhrases();
+
+		if (GetGame().IsServer())
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendPlayerCount, 30000, true);
 	}
 
 	void LoadPhrases()
 	{
-		string modDir = "$profile:Peppers_KillFeed";
+		string modDir = "$profile:DAFImprovements";
 		string configPath = modDir + "//" + "Settings.json"; 
 		if (!FileExist(modDir))
 			MakeDirectory(modDir);
@@ -22,7 +29,7 @@ class KillFeedHandle : PluginBase
 		}
 	}
 
-	void OnPlayerKilled(int deathType, PlayerBase victim = null, PlayerBase murder = null, EntityAI weapon = null)
+	void OnPlayerKilled(int deathType, PlayerBase victim = null, PlayerBase murder = null, EntityAI weapon = null, bool isHeadshot = false)
 	{
 		KillFeedDeathType ktype = GetDeathConfigByType(deathType);
 		string msg;
@@ -34,13 +41,13 @@ class KillFeedHandle : PluginBase
 		else
 			return;
 
-		SendKillInfo(murder, victim, type, weapon, msg);	
+		SendKillInfo(murder, victim, type, weapon, msg, isHeadshot);	
 	}
 
-	void SendKillInfo(PlayerBase murder, PlayerBase victim, int type, EntityAI weapon = null, string msg = "")
+	void SendKillInfo(PlayerBase murder, PlayerBase victim, int type, EntityAI weapon = null, string msg = "", bool isHeadshot = false)
 	{
-		string murderName, targetName, murderWeaponType, message;
-		int dst;
+		string murderName, targetName, murderWeaponData, message;
+		int dst, headshot, murderKills, murderDeaths, targetKills, targetDeaths;
 		PlayerBase recipient;
 		array<Man> players;
 
@@ -53,13 +60,28 @@ class KillFeedHandle : PluginBase
 			murderName = murder.GetIdentity().GetName();
 
 			dst = vector.Distance(victim.GetPosition(), murder.GetPosition());
-			murderWeaponType = string.Empty;
+			murderWeaponData = string.Empty;
 			if (weapon)
-				murderWeaponType = weapon.GetType();
+				murderWeaponData = GetWeaponData(weapon);
+
+			AddRoundKill(murder.GetIdentity());
+			AddRoundDeath(victim.GetIdentity());
+			murderKills = GetRoundKills(murder.GetIdentity());
+			murderDeaths = GetRoundDeaths(murder.GetIdentity());
+			targetKills = GetRoundKills(victim.GetIdentity());
+			targetDeaths = GetRoundDeaths(victim.GetIdentity());
+			murderName = FormatRoundScoreName(murderName, murderKills, murderDeaths);
+			targetName = FormatRoundScoreName(targetName, targetKills, targetDeaths);
+			
+			if (isHeadshot)
+				headshot = 1;
+			else
+				headshot = 0;
 		}
 		else
 		{
 			message = msg;
+			headshot = 0;
 		}
 
 		players = new array<Man>();
@@ -69,7 +91,141 @@ class KillFeedHandle : PluginBase
 		{
 			recipient = PlayerBase.Cast(players[i]);
 			if (recipient != victim && recipient.IsAlive())
-				recipient.RPCSingleParam(-74700005, new Param6<string, string, string, int, string, int>(murderName, targetName, murderWeaponType, dst, message, type), true, recipient.GetIdentity());
+				recipient.RPCSingleParam(-74700005, new Param7<string, string, string, int, string, int, int>(murderName, targetName, murderWeaponData, dst, message, type, headshot), true, recipient.GetIdentity());
+		}
+
+		SendPlayerCount();
+	}
+
+	int GetPlayerCount()
+	{
+		array<PlayerIdentity> identities = new array<PlayerIdentity>();
+		GetGame().GetPlayerIndentities(identities);
+		return identities.Count();
+	}
+
+	void SendPlayerCount()
+	{
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		int count = GetPlayerCount();
+		for (int i = 0; i < players.Count(); i++)
+		{
+			PlayerBase recipient = PlayerBase.Cast(players[i]);
+			if (recipient && recipient.GetIdentity())
+				recipient.RPCSingleParam(-74700006, new Param1<int>(count), true, recipient.GetIdentity());
+		}
+	}
+
+	string FormatRoundScoreName(string name, int kills, int deaths)
+	{
+		return string.Format("%1 (%2:%3)", name, kills, deaths);
+	}
+
+	void ResetRoundStats()
+	{
+		Print("DAFImprovements: resetting round K:D stats");
+		RoundKills.Clear();
+		RoundDeaths.Clear();
+	}
+
+	void EnsureRoundStats(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		string id = identity.GetId();
+		if (!RoundKills.Contains(id))
+			RoundKills.Set(id, 0);
+
+		if (!RoundDeaths.Contains(id))
+			RoundDeaths.Set(id, 0);
+	}
+
+	void AddRoundKill(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		EnsureRoundStats(identity);
+		string id = identity.GetId();
+		RoundKills.Set(id, RoundKills.Get(id) + 1);
+	}
+
+	void AddRoundDeath(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		EnsureRoundStats(identity);
+		string id = identity.GetId();
+		RoundDeaths.Set(id, RoundDeaths.Get(id) + 1);
+	}
+
+	int GetRoundKills(PlayerIdentity identity)
+	{
+		if (!identity)
+			return 0;
+
+		EnsureRoundStats(identity);
+		return RoundKills.Get(identity.GetId());
+	}
+
+	int GetRoundDeaths(PlayerIdentity identity)
+	{
+		if (!identity)
+			return 0;
+
+		EnsureRoundStats(identity);
+		return RoundDeaths.Get(identity.GetId());
+	}
+
+	string GetWeaponData(EntityAI weapon)
+	{
+		array<string> parts = new array<string>();
+		AddWeaponPart(parts, weapon, 0);
+
+		string data = string.Empty;
+		for (int i = 0; i < parts.Count(); i++)
+		{
+			if (i > 0)
+				data = data + ",";
+
+			data = data + parts.Get(i);
+		}
+
+		return data;
+	}
+
+	void AddWeaponPart(array<string> parts, EntityAI item, int depth)
+	{
+		if (!item)
+			return;
+
+		parts.Insert(depth.ToString() + ":ATT:" + item.GetType());
+
+		int attachmentCount = item.GetInventory().AttachmentCount();
+		for (int i = 0; i < attachmentCount; i++)
+		{
+			EntityAI attachment = item.GetInventory().GetAttachmentFromIndex(i);
+			AddWeaponPart(parts, attachment, depth + 1);
+		}
+
+		AddWeaponMagazines(parts, item, depth + 1);
+	}
+
+	void AddWeaponMagazines(array<string> parts, EntityAI item, int depth)
+	{
+		Weapon_Base weapon = Weapon_Base.Cast(item);
+		if (!weapon)
+			return;
+
+		for (int i = 0; i < weapon.GetMuzzleCount(); i++)
+		{
+			Magazine magazine = weapon.GetMagazine(i);
+			if (magazine)
+				parts.Insert(depth.ToString() + ":MAG:" + magazine.GetType());
 		}
 	}
 

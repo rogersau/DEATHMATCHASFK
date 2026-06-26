@@ -13,13 +13,13 @@ class KillFeedItem
 
 	private bool destroyed;
 
-	void KillFeedItem(KillFeedWrapper par, string mName, string tName, string wType, int dist, string msg, int type)
+	void KillFeedItem(KillFeedWrapper par, string mName, string tName, string wType, int dist, string msg, int type, int headshot = 0)
 	{
 		destroyed = false;
 		parent = par;
 		if (type)
 		{
-			root = GetGame().GetWorkspace().CreateWidgets("PeppersKillfeed/assets/MurderInfo.layout", par.GetRoot());
+			root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/MurderInfo.layout", par.GetRoot());
 			murderName = TextWidget.Cast(root.FindAnyWidget("MurderName"));
 			targetName = TextWidget.Cast(root.FindAnyWidget("TargetName"));
 			dst = TextWidget.Cast(root.FindAnyWidget("KillDst"));
@@ -27,13 +27,18 @@ class KillFeedItem
 
 			murderName.SetText(FormatNick(mName));
 			targetName.SetText(FormatNick(tName));
-			dst.SetText(String(dist.ToString() + "m."));
+			
+			// Format distance text with headshot indicator
+			string distanceText = dist.ToString() + "m";
+			if (headshot == 1)
+				distanceText = distanceText + " [HS]";
+			dst.SetText(distanceText);
 
 			SetWeapon(wType);
 		}
 		else
 		{
-			root = GetGame().GetWorkspace().CreateWidgets("PeppersKillfeed/assets/MurderInfoExtra.layout", par.GetRoot());
+			root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/MurderInfoExtra.layout", par.GetRoot());
 			targetName = TextWidget.Cast(root.FindAnyWidget("TargetName"));
 			murderName = TextWidget.Cast(root.FindAnyWidget("DeathMsg"));
 			murderName.SetText(msg);
@@ -54,20 +59,100 @@ class KillFeedItem
 	string FormatNick(string source)
 	{
 		string result = source;
-		if (result.Length() > 16)
-			result = result.Substring(0, 12) + "...";
+		if (result.Length() > 24)
+			result = result.Substring(0, 20) + "...";
 		return result;
 	}
 
-	void SetWeapon(string type)
+	void SetWeapon(string data)
 	{
-		EntityAI weapon = GetGame().CreateObject(type, vector.Zero, true);
+		if (data == string.Empty)
+			return;
+
+		TStringArray parts = new TStringArray;
+		data.Split(",", parts);
+
+		if (parts.Count() == 0)
+			return;
+
+		string weaponType = GetWeaponPartType(parts.Get(0));
+		EntityAI weapon = EntityAI.Cast(GetGame().CreateObject(weaponType, vector.Zero, true));
 		if (!weapon)
 			return;
+
+		array<EntityAI> parents = new array<EntityAI>();
+		parents.Insert(weapon);
+
+		for (int i = 1; i < parts.Count(); i++)
+		{
+			string attachmentPart = parts.Get(i);
+			int depth = GetWeaponPartDepth(attachmentPart);
+			string attachmentType = GetWeaponPartType(attachmentPart);
+
+			EntityAI parentItem = weapon;
+			if (depth > 0 && parents.Count() > depth - 1 && parents.Get(depth - 1))
+				parentItem = parents.Get(depth - 1);
+
+			EntityAI attachment;
+			if (IsWeaponPartMagazine(attachmentPart))
+			{
+				Weapon_Base parentWeapon = Weapon_Base.Cast(parentItem);
+				if (parentWeapon)
+					parentWeapon.SpawnAmmo(attachmentType, Weapon_Base.SAMF_DEFAULT);
+			}
+			else
+			{
+				attachment = parentItem.GetInventory().CreateAttachment(attachmentType);
+			}
+
+			if (attachment)
+			{
+				while (parents.Count() <= depth)
+				{
+					parents.Insert(null);
+				}
+
+				parents.Set(depth, attachment);
+			}
+		}
+
 		murderWeapon.SetItem(weapon);
 		murderWeapon.SetView(weapon.GetViewIndex());
 		murderWeapon.SetModelOrientation("0 0 0");
 		localWeapon = weapon;
+	}
+
+	int GetWeaponPartDepth(string data)
+	{
+		TStringArray partData = new TStringArray;
+		data.Split(":", partData);
+
+		if (partData.Count() < 2)
+			return 0;
+
+		return partData.Get(0).ToInt();
+	}
+
+	string GetWeaponPartType(string data)
+	{
+		TStringArray partData = new TStringArray;
+		data.Split(":", partData);
+
+		if (partData.Count() >= 3)
+			return partData.Get(2);
+
+		if (partData.Count() < 2)
+			return data;
+
+		return partData.Get(1);
+	}
+
+	bool IsWeaponPartMagazine(string data)
+	{
+		TStringArray partData = new TStringArray;
+		data.Split(":", partData);
+
+		return partData.Count() >= 3 && partData.Get(1) == "MAG";
 	}
 
 	void Destroy()

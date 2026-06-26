@@ -1,0 +1,26 @@
+FrameWidgetClass PlayerCountRoot {
+ position 30 100
+ size 180 34
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ {
+  TextWidgetClass PlayerCount {
+   ignorepointer 1
+   color 1 1 1 0.85
+   size 180 34
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "Players: 0"
+   text_proportion 0.75
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" left
+   "text valign" center
+  }
+ }
+}
