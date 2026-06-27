@@ -205,6 +205,10 @@ class DAFDeathmatch
 		{
 			SendStatus(source);
 		}
+		else if (command == "inspect")
+		{
+			SendInspect(source);
+		}
 		else if (command == "autorespawn")
 		{
 			ToggleAutoRespawn(source);
@@ -268,7 +272,7 @@ class DAFDeathmatch
 		string leader = m_Settings.commandCharacter;
 		DAFDMChat.MessagePlayer(source, "Available commands:");
 		DAFDMChat.MessagePlayer(source, leader + "help, " + leader + "players, " + leader + "timeleft");
-		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "autorespawn, " + leader + "respawn");
+		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "inspect, " + leader + "autorespawn, " + leader + "respawn");
 		DAFDMChat.MessagePlayer(source, leader + "version, " + leader + "endround, " + leader + "forceround <type>");
 		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "reloadconfig (admins)");
 	}
@@ -305,6 +309,31 @@ class DAFDeathmatch
 			arenaName = m_CurrentArena.GetName();
 
 		DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+	}
+
+	void SendInspect(PlayerBase source)
+	{
+		string arenaName = "none";
+		if (m_CurrentArena)
+			arenaName = m_CurrentArena.GetName();
+
+		string playerId = "";
+		if (source && source.GetIdentity())
+			playerId = source.GetIdentity().GetId();
+
+		string loadoutName = "none";
+		if (playerId != "")
+			m_LastLoadoutByPlayer.Find(playerId, loadoutName);
+
+		string handsType = "none";
+		if (source)
+		{
+			EntityAI inHands = source.GetHumanInventory().GetEntityInHands();
+			if (inHands)
+				handsType = inHands.GetType();
+		}
+
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 arena=%2 pool=%3 loadout=%4 hands=%5", GetRoundDisplayName(), arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
 	}
 
 	void ForceRound(PlayerBase source, string roundTypeName)
@@ -549,8 +578,6 @@ class DAFDeathmatch
 			PrintFormat("DAFDeathmatch: failed to create loadout weapon %1 with %2 fallbacks", config.type, config.fallbackTypes.Count());
 			return null;
 		}
-
-		PrintFormat("DAFDeathmatch: created loadout weapon %1", weapon.GetType());
 
 		foreach (string attachmentType: config.attachments)
 		{

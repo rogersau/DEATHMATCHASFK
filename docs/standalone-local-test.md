@@ -40,6 +40,7 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 @forcearena Lubjansk
 @forcenext snipers Lubjansk
 @status
+@inspect
 @respawn
 @autorespawn
 @timeleft
@@ -58,3 +59,4 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 - `@respawn` manually recovers the player if auto-respawn fails during testing.
 - `@endround` starts a clean next round.
 - `@forcenext snipers <arena>` starts a predictable sniper test round.
+- `@inspect` shows the server's current round, arena, loadout pool, last rolled loadout, and item in hands.
