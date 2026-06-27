@@ -39,6 +39,14 @@ class DAFDMRoundTimer
 		BroadcastSeconds(GetRemainingSeconds());
 	}
 
+	static void BroadcastTo(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		BroadcastSecondsTo(identity, GetRemainingSeconds());
+	}
+
 	static int GetRemainingSeconds()
 	{
 		if (s_RoundEndTick <= 0)
@@ -74,6 +82,23 @@ class DAFDMRoundTimer
 			{
 				recipient.RPCSingleParam(-74700009, new Param1<int>(seconds), true, recipient.GetIdentity());
 				recipient.RPCSingleParam(-74700010, new Param1<string>(s_RoundLabel), true, recipient.GetIdentity());
+			}
+		}
+	}
+
+	static void BroadcastSecondsTo(PlayerIdentity identity, int seconds)
+	{
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		foreach (Man man: players)
+		{
+			PlayerBase recipient = PlayerBase.Cast(man);
+			if (recipient && recipient.GetIdentity() == identity)
+			{
+				recipient.RPCSingleParam(-74700009, new Param1<int>(seconds), true, identity);
+				recipient.RPCSingleParam(-74700010, new Param1<string>(s_RoundLabel), true, identity);
+				return;
 			}
 		}
 	}

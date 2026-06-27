@@ -94,6 +94,12 @@ Admin/server-ops polish such as Discord, votes, events, leaderboards, and advanc
 
 Runtime `DAFDeathmatch` should read its own config only. Crimson Zamboni migration should be handled by an external converter, not by runtime compatibility code.
 
+The Crimson migration converter is a one-off operator tool, not a polished product surface. Prefer a straightforward PowerShell entry point such as `tools/Convert-CrimsonConfig.ps1` that takes explicit input and output folders, writes standalone `settings.json`, `arenas.json`, and `loadouts.json`, and prints warnings for anything it cannot faithfully convert.
+
+The converter should run locally and write to a separate output folder for inspection. It should not write directly into the live server profile by default; copying the generated config to the server is an operator step.
+
+The first converter pass should migrate only standalone-owned essentials: admins, round timings, enabled round types and weights, excluded arena rotation, arena geometry and spawns, and loadout pools. Skip Crimson settings for systems standalone does not own yet, including Discord, infected behavior, crates, holiday props, cosmetics, and unused oddball fields.
+
 Target config files:
 
 ```text
@@ -109,17 +115,31 @@ Round types are first-class and define the round flavor. Initial flavors:
 - `normal`
 - `snipers`
 - `freshies`
-- `juicer`
+- `juiced`
 
 Round flavor is always visible on the HUD with the timer. Arena name is not shown on the HUD.
 
 Round type selection should be weighted random with one anti-repeat reroll. Round types can restrict allowed arenas, but default to any arena.
+
+Crimson Zamboni events should be converted into standalone round types, not preserved as a separate runtime event system. Standalone `DAFDeathmatch` uses one round-type concept for flavor, weighting, duration overrides, arena restrictions, and loadout pool selection.
+
+When converting Crimson Zamboni event probabilities, preserve the effective chance of each round flavor. Crimson's global event chance becomes the total non-normal weight, while the leftover probability becomes `normal`. For the live Namalsk config, `events.chance = 0.35` with `snipers = 0.25`, `freshies = 0.25`, and `juiced = 0.5` converts to readable standalone weights of roughly `normal = 65`, `snipers = 9`, `freshies = 9`, and `juiced = 18`.
+
+The converter should not carry disabled Crimson events into standalone config. Zero-chance events such as `Cowboy` and `Halloween` are discarded rather than preserved as disabled round types.
+
+The converter should import both Crimson `arenas.json` and `custom-arenas.json`. Standalone `DAFDeathmatch` should support radius arenas and rectangular arenas rather than dropping custom arena shapes during migration.
+
+When converting Crimson `excludeArenas`, preserve the arena definitions in standalone `arenas.json` but keep them out of active rotation through standalone settings/config. Excluded arenas are authored data, not migration garbage.
+
+Arenas are a Crimson pain point and should remain open to future expansion behavior as player count grows. That dynamic arena expansion concept is not required for the first migration pass, but the standalone arena model should avoid choices that make it hard to add later.
 
 ## Loadouts
 
 Loadout config should be simpler than Crimson Zamboni's config, while the loadout engine should be more flexible.
 
 Use named loadout pools with weighted entries. Players roll independently inside the selected round type's loadout pool. Weapons can overlap between round types.
+
+Standalone loadouts should keep a familiar Crimson-like weapon pool model rather than expanding every possible weapon combination into separate fixed loadout entries. Pools should be readable balancing units, with weapons able to describe variants, attachments, accessories, magazines, and related random-choice groups in a structured way.
 
 Use weighted random with light anti-repeat:
 
@@ -140,7 +160,7 @@ First admin commands:
 
 `@reloadconfig` should reload settings for future rounds only. Use `@endround` to force the transition.
 
-Radius arenas are enough. Basic circular walls should be included in the first playable cut. Round-end cleanup should delete loose items and tracked round-created objects, with sane exclusions for players, vehicles, buildings, and persistent world objects. During long rounds, rely on DayZ central economy cleanup rather than periodic cleanup.
+Radius and rectangular arenas should both be supported. Basic arena walls should be included in the first playable cut. Round-end cleanup should delete loose items and tracked round-created objects, with sane exclusions for players, vehicles, buildings, and persistent world objects. During long rounds, rely on DayZ central economy cleanup rather than periodic cleanup.
 
 ## Death Flow
 

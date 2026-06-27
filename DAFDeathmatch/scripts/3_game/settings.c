@@ -10,6 +10,7 @@ class DAFDMRoundTypeConfig
 	string name;
 	string displayName;
 	int weight = 1;
+	int roundMinutes = 0;
 	string loadoutPool;
 	ref TStringArray arenaNames = new TStringArray();
 }
@@ -30,6 +31,7 @@ class DAFDMSettings
 	int corpseCleanupSeconds = 5;
 	int deathDropCleanupSeconds = 60;
 	ref TStringArray arenaRotation = new TStringArray();
+	ref TStringArray excludedArenas = new TStringArray();
 	ref TStringArray admins = new TStringArray();
 	ref array<ref DAFDMRoundTypeConfig> roundTypes = new array<ref DAFDMRoundTypeConfig>();
 	ref array<ref DAFDMWeaponConfig> primaryWeapons = new array<ref DAFDMWeaponConfig>();
@@ -112,7 +114,7 @@ class DAFDMSettings
 		AddRoundType("normal", "Normal", 70, "normal");
 		AddRoundType("snipers", "Snipers", 10, "snipers");
 		AddRoundType("freshies", "Freshies", 10, "freshies");
-		AddRoundType("juicer", "Juicer", 10, "juicer");
+		AddRoundType("juiced", "Juiced", 10, "juiced");
 	}
 
 	private void AddRoundType(string name, string displayName, int weight, string loadoutPool)

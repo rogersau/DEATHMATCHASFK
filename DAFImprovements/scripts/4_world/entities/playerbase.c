@@ -40,6 +40,8 @@ modded class PlayerBase extends ManBase
 
 	private static ref KillFeedWrapper s_KillFeed;
 	private static ref KillFeedHandle s_KillHandle;
+	private static int s_DAF_PendingRoundSeconds = -1;
+	private static string s_DAF_PendingRoundLabel = "";
 	protected ref array<ref DAF_ItemDamageSnapshot> m_DAF_ItemDamageSnapshots;
 	private bool m_DAF_IsFallDeath;
 	private bool m_DAF_IsHeadshot;
@@ -49,7 +51,10 @@ modded class PlayerBase extends ManBase
 		if (GetGame().IsClient())
 		{
 			if (!s_KillFeed)
+			{
 				s_KillFeed = new KillFeedWrapper();
+				DAF_ApplyPendingRoundHud();
+			}
 
 			if (!s_KillHandle)
 				s_KillHandle = new KillFeedHandle();
@@ -276,12 +281,18 @@ modded class PlayerBase extends ManBase
 	override void OnPlayerLoaded()
 	{
 		super.OnPlayerLoaded();
+		if (GetGame().IsClient())
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(DAF_RecreateKillFeedHud, 250, false);
+
 		DAF_QueueFullAutoSweep();
 	}
 
 	override void OnConnect()
 	{
 		super.OnConnect();
+		if (GetGame().IsClient())
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(DAF_RecreateKillFeedHud, 250, false);
+
 		DAF_QueueFullAutoSweep();
 	}
 
@@ -358,7 +369,9 @@ modded class PlayerBase extends ManBase
 			deathType = DeathType.PVP;
 		}
 
-		GetKillFeedHandle().OnPlayerKilled(deathType, this, target, weapon, wasHeadshot);
+		KillFeedHandle handle = GetKillFeedHandle();
+		if (handle)
+			handle.OnPlayerKilled(deathType, this, target, weapon, wasHeadshot);
 
 		super.EEKilled(killer);
 	}
@@ -428,6 +441,7 @@ modded class PlayerBase extends ManBase
 				if (!ctx.Read(roundTimeData))
 					return;
 
+				s_DAF_PendingRoundSeconds = roundTimeData.param1;
 				if (s_KillFeed)
 					s_KillFeed.SetRoundTimeRemaining(roundTimeData.param1);
 			}
@@ -437,10 +451,32 @@ modded class PlayerBase extends ManBase
 				if (!ctx.Read(roundLabelData))
 					return;
 
+				s_DAF_PendingRoundLabel = roundLabelData.param1;
 				if (s_KillFeed)
 					s_KillFeed.SetRoundLabel(roundLabelData.param1);
 			}
 		}
+	}
+
+	static void DAF_ApplyPendingRoundHud()
+	{
+		if (!s_KillFeed)
+			return;
+
+		if (s_DAF_PendingRoundLabel != "")
+			s_KillFeed.SetRoundLabel(s_DAF_PendingRoundLabel);
+
+		if (s_DAF_PendingRoundSeconds >= 0)
+			s_KillFeed.SetRoundTimeRemaining(s_DAF_PendingRoundSeconds);
+	}
+
+	static void DAF_RecreateKillFeedHud()
+	{
+		if (s_KillFeed)
+			s_KillFeed.Destroy();
+
+		s_KillFeed = new KillFeedWrapper();
+		DAF_ApplyPendingRoundHud();
 	}
 
 	void DAF_FixRespawnCursor()

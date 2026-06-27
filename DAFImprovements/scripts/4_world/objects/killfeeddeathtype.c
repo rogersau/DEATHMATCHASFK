@@ -13,6 +13,9 @@ class KillFeedDeathType
 
 	string GetPhrase()
 	{
+		if (!KillPhrases || KillPhrases.Count() == 0)
+			return "";
+
 		return KillPhrases.GetRandomElement();
 	}
 

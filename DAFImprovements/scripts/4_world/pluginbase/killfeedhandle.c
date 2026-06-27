@@ -18,22 +18,37 @@ class KillFeedHandle : PluginBase
 	{
 		string modDir = "$profile:DAFImprovements";
 		string configPath = modDir + "//" + "Settings.json"; 
+		bool changed = false;
 		if (!FileExist(modDir))
 			MakeDirectory(modDir);
 		if (FileExist(configPath))
 			JsonFileLoader<ref array<ref KillFeedDeathType>>.JsonLoadFile( configPath, KillFeedPhrases );
-		else
+
+		if (!KillFeedPhrases || KillFeedPhrases.Count() == 0)
 		{
 			FillDefault();
-			JsonFileLoader<ref array<ref KillFeedDeathType>>.JsonSaveFile( configPath, KillFeedPhrases );
+			changed = true;
 		}
+		else
+		{
+			changed = EnsureRequiredPhrases();
+		}
+
+		if (changed)
+			JsonFileLoader<ref array<ref KillFeedDeathType>>.JsonSaveFile( configPath, KillFeedPhrases );
 	}
 
 	void OnPlayerKilled(int deathType, PlayerBase victim = null, PlayerBase murder = null, EntityAI weapon = null, bool isHeadshot = false)
 	{
 		KillFeedDeathType ktype = GetDeathConfigByType(deathType);
 		string msg;
-		int type;
+		int type = 0;
+		if (!ktype)
+			ktype = GetDeathConfigByType(DeathType.UNKNOWN);
+
+		if (!ktype)
+			return;
+
 		if (ktype.GetType() == "PVP")
 			type = 1;
 		else if (ktype.IsActive())
@@ -51,12 +66,18 @@ class KillFeedHandle : PluginBase
 		PlayerBase recipient;
 		array<Man> players;
 
+		if (!victim)
+			return;
+
 		targetName = "Survivor (AI)";
 		if (victim.GetIdentity())
 			targetName = victim.GetIdentity().GetName();
 
 		if (type)
 		{
+			if (!murder || !murder.GetIdentity())
+				return;
+
 			murderName = murder.GetIdentity().GetName();
 
 			dst = vector.Distance(victim.GetPosition(), murder.GetPosition());
@@ -90,7 +111,7 @@ class KillFeedHandle : PluginBase
 		for (int i = 0; i < players.Count(); i++)
 		{
 			recipient = PlayerBase.Cast(players[i]);
-			if (recipient != victim && recipient.IsAlive())
+			if (recipient && recipient.GetIdentity())
 				recipient.RPCSingleParam(-74700005, new Param7<string, string, string, int, string, int, int>(murderName, targetName, murderWeaponData, dst, message, type, headshot), true, recipient.GetIdentity());
 		}
 
@@ -257,11 +278,39 @@ class KillFeedHandle : PluginBase
 		KillFeedPhrases.Insert(new KillFeedDeathType("FALL", {"Died of high altitude"}));
 	}	
 
+	bool EnsureRequiredPhrases()
+	{
+		bool changed = false;
+
+		changed = EnsurePhrase("UNKNOWN", {"Died of an unknown cause"}) || changed;
+		changed = EnsurePhrase("PVP", {""}) || changed;
+		changed = EnsurePhrase("SUICIDE", {"Suicide"}) || changed;
+		changed = EnsurePhrase("BLEEDING", {"Bled to death"}) || changed;
+		changed = EnsurePhrase("STARVING", {"Died of exhaustion"}) || changed;
+		changed = EnsurePhrase("ZOMBIE", {"Eaten by zombies"}) || changed;
+		changed = EnsurePhrase("ANIMAL", {"Eaten by an animal"}) || changed;
+		changed = EnsurePhrase("FALL", {"Died of high altitude"}) || changed;
+
+		return changed;
+	}
+
+	bool EnsurePhrase(string deathType, array<string> phrases)
+	{
+		foreach (KillFeedDeathType ktype : KillFeedPhrases)
+		{
+			if (ktype && ktype.GetType() == deathType)
+				return false;
+		}
+
+		KillFeedPhrases.Insert(new KillFeedDeathType(deathType, phrases));
+		return true;
+	}
+
 	KillFeedDeathType GetDeathConfigByType(DeathType type)
 	{
 		foreach (KillFeedDeathType ktype : KillFeedPhrases)
 		{
-			if (typename.EnumToString(DeathType, type) == ktype.GetType())
+			if (ktype && typename.EnumToString(DeathType, type) == ktype.GetType())
 				return ktype;
 		}
 		return null;

@@ -8,6 +8,8 @@ class DAFDeathmatch
 	private DAFDMArena m_CurrentArena;
 	private DAFDMRoundTypeConfig m_CurrentRoundType;
 	private string m_LastRoundTypeName;
+	private string m_ForcedRoundTypeName;
+	private string m_ForcedArenaName;
 	private bool m_RoundActive;
 	private ref map<string, bool> m_AutoRespawnOverrides;
 	private ref map<string, string> m_LastLoadoutByPlayer;
@@ -27,6 +29,8 @@ class DAFDeathmatch
 
 		m_Scoreboard = new DAFDMScoreboard();
 		m_RoundTimer = new Timer();
+		m_ForcedRoundTypeName = "";
+		m_ForcedArenaName = "";
 		m_AutoRespawnOverrides = new map<string, bool>();
 		m_LastLoadoutByPlayer = new map<string, string>();
 		m_RoundObjects = new array<Object>();
@@ -42,7 +46,10 @@ class DAFDeathmatch
 	{
 		CleanupRoundObjects();
 		m_CurrentRoundType = PickRoundType();
-		m_CurrentArena = m_Arenas.PickArenaForRound(m_Settings, m_CurrentRoundType);
+		m_CurrentArena = PickForcedArena();
+		if (!m_CurrentArena)
+			m_CurrentArena = m_Arenas.PickArenaForRound(m_Settings, m_CurrentRoundType);
+
 		if (!m_CurrentArena)
 		{
 			Print("DAFDeathmatch: cannot start round because no arena is configured");
@@ -54,9 +61,10 @@ class DAFDeathmatch
 		PrintFormat("DAFDeathmatch: %1 round started in arena %2", GetRoundDisplayName(), m_CurrentArena.GetName());
 
 		SpawnArenaWalls();
-		DAFDMRoundTimer.Start(m_Settings.roundMinutes, GetRoundDisplayName());
+		int roundMinutes = GetRoundMinutes();
+		DAFDMRoundTimer.Start(roundMinutes, GetRoundDisplayName());
 		m_RoundTimer.Stop();
-		m_RoundTimer.Run(m_Settings.roundMinutes * 60, this, "EndRound");
+		m_RoundTimer.Run(roundMinutes * 60, this, "EndRound");
 		DAFDMChat.Announce("Round started: " + GetRoundDisplayName());
 
 		RespawnAllPlayers();
@@ -98,8 +106,9 @@ class DAFDeathmatch
 		DeleteCorpseInventory(victim, deathDrop);
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.CleanupCorpse, m_Settings.corpseCleanupSeconds * 1000, false, victim);
 
-		if (ShouldAutoRespawn(victim.GetIdentity()))
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnPlayer, m_Settings.respawnSeconds * 1000, false, victim);
+		PlayerIdentity identity = victim.GetIdentity();
+		if (ShouldAutoRespawn(identity))
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnIdentity, m_Settings.respawnSeconds * 1000, false, identity, victim);
 	}
 
 	void OnPlayerPickedUpItem(PlayerBase player, EntityAI item)
@@ -192,9 +201,18 @@ class DAFDeathmatch
 			PlayerIdentity identity = source.GetIdentity();
 			DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity)));
 		}
+		else if (command == "status")
+		{
+			SendStatus(source);
+		}
 		else if (command == "autorespawn")
 		{
 			ToggleAutoRespawn(source);
+		}
+		else if (command == "respawn")
+		{
+			RespawnPlayer(source);
+			DAFDMChat.MessagePlayer(source, "Respawned");
 		}
 		else if (command == "version")
 		{
@@ -207,6 +225,27 @@ class DAFDeathmatch
 
 			DAFDMChat.Announce("Admin ended the round");
 			EndRound();
+		}
+		else if (command == "forceround")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			ForceRound(source, args);
+		}
+		else if (command == "forcearena")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			ForceArena(source, args);
+		}
+		else if (command == "forcenext")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			ForceNext(source, args);
 		}
 		else if (command == "reloadconfig")
 		{
@@ -229,8 +268,9 @@ class DAFDeathmatch
 		string leader = m_Settings.commandCharacter;
 		DAFDMChat.MessagePlayer(source, "Available commands:");
 		DAFDMChat.MessagePlayer(source, leader + "help, " + leader + "players, " + leader + "timeleft");
-		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "autorespawn, " + leader + "version");
-		DAFDMChat.MessagePlayer(source, leader + "endround, " + leader + "reloadconfig (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "autorespawn, " + leader + "respawn");
+		DAFDMChat.MessagePlayer(source, leader + "version, " + leader + "endround, " + leader + "forceround <type>");
+		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "reloadconfig (admins)");
 	}
 
 	bool RequireAdmin(PlayerBase source)
@@ -255,6 +295,96 @@ class DAFDeathmatch
 			DAFDMChat.MessagePlayer(source, "Auto-respawn enabled");
 		else
 			DAFDMChat.MessagePlayer(source, "Auto-respawn disabled");
+	}
+
+	void SendStatus(PlayerBase source)
+	{
+		string roundName = GetRoundDisplayName();
+		string arenaName = "none";
+		if (m_CurrentArena)
+			arenaName = m_CurrentArena.GetName();
+
+		DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+	}
+
+	void ForceRound(PlayerBase source, string roundTypeName)
+	{
+		roundTypeName.ToLower();
+		DAFDMRoundTypeConfig roundType = GetRoundTypeByName(roundTypeName);
+		if (!roundType)
+		{
+			DAFDMChat.MessagePlayer(source, "Unknown round type: " + roundTypeName);
+			return;
+		}
+
+		m_ForcedRoundTypeName = roundType.name;
+		DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType));
+
+		if (m_RoundActive)
+			EndRound();
+		else
+			StartRound();
+	}
+
+	void ForceArena(PlayerBase source, string arenaName)
+	{
+		DAFDMArena arena = m_Arenas.GetByName(arenaName);
+		if (!arena)
+		{
+			DAFDMChat.MessagePlayer(source, "Unknown arena: " + arenaName);
+			return;
+		}
+
+		m_ForcedArenaName = arena.GetName();
+		DAFDMChat.Announce("Admin forced next arena: " + arena.GetName());
+
+		if (m_RoundActive)
+			EndRound();
+		else
+			StartRound();
+	}
+
+	void ForceNext(PlayerBase source, string args)
+	{
+		int space = args.IndexOf(" ");
+		string roundTypeName = args;
+		string arenaName = "";
+		if (space > 0)
+		{
+			roundTypeName = args.Substring(0, space);
+			arenaName = args.Substring(space + 1, args.Length() - space - 1);
+		}
+
+		roundTypeName.ToLower();
+		DAFDMRoundTypeConfig roundType = GetRoundTypeByName(roundTypeName);
+		if (!roundType)
+		{
+			DAFDMChat.MessagePlayer(source, "Unknown round type: " + roundTypeName);
+			return;
+		}
+
+		if (arenaName != "")
+		{
+			DAFDMArena arena = m_Arenas.GetByName(arenaName);
+			if (!arena)
+			{
+				DAFDMChat.MessagePlayer(source, "Unknown arena: " + arenaName);
+				return;
+			}
+
+			m_ForcedArenaName = arena.GetName();
+		}
+
+		m_ForcedRoundTypeName = roundType.name;
+		if (m_ForcedArenaName != "")
+			DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType) + " in " + m_ForcedArenaName);
+		else
+			DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType));
+
+		if (m_RoundActive)
+			EndRound();
+		else
+			StartRound();
 	}
 
 	bool ShouldAutoRespawn(PlayerIdentity identity)
@@ -314,18 +444,46 @@ class DAFDeathmatch
 		EquipPlayer(player);
 	}
 
+	void RespawnIdentity(PlayerIdentity identity, PlayerBase oldPlayer)
+	{
+		if (!identity || !m_CurrentArena)
+			return;
+
+		vector position = m_CurrentArena.GetRandomPlayerSpawn();
+		PlayerBase player = PlayerBase.Cast(GetGame().CreatePlayer(identity, "SurvivorM_Mirek", position, 0, "NONE"));
+		if (!player)
+		{
+			PrintFormat("DAFDeathmatch: failed to create respawn player for %1", identity.GetId());
+			return;
+		}
+
+		GetGame().SelectPlayer(identity, player);
+		m_CurrentArena.FaceCenter(player);
+		EquipPlayer(player);
+
+		if (oldPlayer && oldPlayer != player)
+			GetGame().ObjectDelete(oldPlayer);
+	}
+
 	void EquipPlayer(PlayerBase player)
 	{
 		if (!player)
 			return;
 
-		player.RemoveAllItems();
+		ClearPlayerInventory(player);
 		HumanInventory inventory = player.GetHumanInventory();
 		DAFDMLoadoutEntryConfig loadout = PickLoadoutForPlayer(player);
 		if (!loadout)
+		{
+			PrintFormat("DAFDeathmatch: no loadout found for pool %1", GetRoundLoadoutPool());
 			return;
+		}
 
-		CreateLoadoutWeapon(player, inventory, loadout.primary, true);
+		CreateOutfit(inventory, loadout);
+		EntityAI primary = CreateLoadoutWeapon(player, inventory, loadout.primary, true);
+		if (!primary)
+			CreateEmergencyPrimary(player, inventory);
+
 		CreateLoadoutWeapon(player, inventory, loadout.secondary, false);
 
 		foreach (DAFDMLoadoutItemConfig itemConfig: loadout.items)
@@ -354,19 +512,45 @@ class DAFDeathmatch
 		return loadout;
 	}
 
+	void CreateOutfit(HumanInventory inventory, DAFDMLoadoutEntryConfig loadout)
+	{
+		if (!inventory || !loadout)
+			return;
+
+		foreach (TStringArray choices: loadout.outfit)
+		{
+			if (!choices || choices.Count() == 0)
+				continue;
+
+			string itemType = choices.GetRandomElement();
+			if (itemType != "")
+				inventory.CreateInInventory(itemType);
+		}
+	}
+
 	EntityAI CreateLoadoutWeapon(PlayerBase player, HumanInventory inventory, DAFDMLoadoutWeaponConfig config, bool inHands)
 	{
 		if (!inventory || !config)
 			return null;
 
-		EntityAI weapon;
-		if (inHands)
-			weapon = inventory.CreateInHands(config.type);
-		else
-			weapon = inventory.CreateInInventory(config.type);
+		EntityAI weapon = TryCreateLoadoutWeapon(inventory, config.type, inHands);
+		if (!weapon && config.fallbackTypes)
+		{
+			foreach (string fallbackType: config.fallbackTypes)
+			{
+				weapon = TryCreateLoadoutWeapon(inventory, fallbackType, inHands);
+				if (weapon)
+					break;
+			}
+		}
 
 		if (!weapon)
+		{
+			PrintFormat("DAFDeathmatch: failed to create loadout weapon %1 with %2 fallbacks", config.type, config.fallbackTypes.Count());
 			return null;
+		}
+
+		PrintFormat("DAFDeathmatch: created loadout weapon %1", weapon.GetType());
 
 		foreach (string attachmentType: config.attachments)
 		{
@@ -393,8 +577,88 @@ class DAFDeathmatch
 		return weapon;
 	}
 
+	EntityAI CreateEmergencyPrimary(PlayerBase player, HumanInventory inventory)
+	{
+		if (!player || !inventory)
+			return null;
+
+		TStringArray fallbackTypes = new TStringArray();
+		fallbackTypes.Insert("Winchester70");
+		fallbackTypes.Insert("Mosin9130");
+		fallbackTypes.Insert("M4A1");
+
+		foreach (string type: fallbackTypes)
+		{
+			EntityAI weapon = TryCreateLoadoutWeapon(inventory, type, true);
+			if (!weapon)
+				continue;
+
+			Weapon_Base weaponBase = Weapon_Base.Cast(weapon);
+			if (weaponBase)
+			{
+				if (type == "Mosin9130")
+					weaponBase.SpawnAmmo("Ammo_762x54", Weapon_Base.SAMF_DEFAULT);
+				else if (type == "M4A1")
+					weaponBase.SpawnAmmo("Mag_STANAG_30Rnd", Weapon_Base.SAMF_DEFAULT);
+				else
+					weaponBase.SpawnAmmo("Ammo_308Win", Weapon_Base.SAMF_DEFAULT);
+			}
+
+			player.SetQuickBarEntityShortcut(weapon, 0, true);
+			PrintFormat("DAFDeathmatch: created emergency primary weapon %1", weapon.GetType());
+			return weapon;
+		}
+
+		Print("DAFDeathmatch: failed to create emergency primary weapon");
+		return null;
+	}
+
+	void ClearPlayerInventory(PlayerBase player)
+	{
+		if (!player)
+			return;
+
+		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
+		if (inHands)
+		{
+			player.GetHumanInventory().DropEntity(InventoryMode.SERVER, player, inHands);
+			GetGame().ObjectDelete(inHands);
+		}
+
+		array<EntityAI> items = new array<EntityAI>();
+		player.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
+		for (int i = items.Count() - 1; i >= 0; i--)
+		{
+			EntityAI item = items[i];
+			if (item && item != inHands)
+				GetGame().ObjectDelete(item);
+		}
+	}
+
+	EntityAI TryCreateLoadoutWeapon(HumanInventory inventory, string type, bool inHands)
+	{
+		if (!inventory || type == "")
+			return null;
+
+		if (inHands)
+			return inventory.CreateInHands(type);
+
+		return inventory.CreateInInventory(type);
+	}
+
 	DAFDMRoundTypeConfig PickRoundType()
 	{
+		if (m_ForcedRoundTypeName != "")
+		{
+			DAFDMRoundTypeConfig forced = GetRoundTypeByName(m_ForcedRoundTypeName);
+			m_ForcedRoundTypeName = "";
+			if (forced)
+			{
+				m_LastRoundTypeName = forced.name;
+				return forced;
+			}
+		}
+
 		DAFDMRoundTypeConfig picked = PickWeightedRoundType();
 		if (picked && picked.name == m_LastRoundTypeName && m_Settings.roundTypes.Count() > 1)
 			picked = PickWeightedRoundType();
@@ -403,6 +667,19 @@ class DAFDeathmatch
 			m_LastRoundTypeName = picked.name;
 
 		return picked;
+	}
+
+	DAFDMArena PickForcedArena()
+	{
+		if (m_ForcedArenaName == "")
+			return null;
+
+		DAFDMArena arena = m_Arenas.GetByName(m_ForcedArenaName);
+		m_ForcedArenaName = "";
+		if (arena)
+			return arena;
+
+		return null;
 	}
 
 	DAFDMRoundTypeConfig PickWeightedRoundType()
@@ -429,6 +706,28 @@ class DAFDeathmatch
 		return null;
 	}
 
+	DAFDMRoundTypeConfig GetRoundTypeByName(string name)
+	{
+		foreach (DAFDMRoundTypeConfig roundType: m_Settings.roundTypes)
+		{
+			if (roundType && roundType.name == name)
+				return roundType;
+		}
+
+		return null;
+	}
+
+	string GetRoundTypeDisplayName(DAFDMRoundTypeConfig roundType)
+	{
+		if (!roundType)
+			return "Normal";
+
+		if (roundType.displayName != "")
+			return roundType.displayName;
+
+		return roundType.name;
+	}
+
 	string GetRoundDisplayName()
 	{
 		if (!m_CurrentRoundType)
@@ -448,10 +747,24 @@ class DAFDeathmatch
 		return "normal";
 	}
 
+	int GetRoundMinutes()
+	{
+		if (m_CurrentRoundType && m_CurrentRoundType.roundMinutes > 0)
+			return m_CurrentRoundType.roundMinutes;
+
+		return m_Settings.roundMinutes;
+	}
+
 	void SpawnArenaWalls()
 	{
 		if (!m_Settings.spawnArenaWalls || !m_CurrentArena)
 			return;
+
+		if (m_CurrentArena.IsRectangular())
+		{
+			SpawnRectangularArenaWalls();
+			return;
+		}
 
 		vector center = m_CurrentArena.GetCenter();
 		float radius = m_CurrentArena.GetRadius();
@@ -464,6 +777,43 @@ class DAFDeathmatch
 			if (wall)
 			{
 				wall.SetDirection(Vector(Math.Sin(angle), 0, Math.Cos(angle)));
+				m_RoundObjects.Insert(wall);
+			}
+		}
+	}
+
+	void SpawnRectangularArenaWalls()
+	{
+		vector center = m_CurrentArena.GetCenter();
+		float halfX = m_CurrentArena.GetXSize() * 0.5;
+		float halfZ = m_CurrentArena.GetZSize() * 0.5;
+		if (halfX <= 0 || halfZ <= 0)
+			return;
+
+		int xSegments = m_Settings.arenaWallSegments / 4;
+		int zSegments = m_Settings.arenaWallSegments / 4;
+		if (xSegments < 2)
+			xSegments = 2;
+		if (zSegments < 2)
+			zSegments = 2;
+
+		SpawnWallLine(Vector(center[0] - halfX, center[1], center[2] - halfZ), Vector(center[0] + halfX, center[1], center[2] - halfZ), xSegments, 90);
+		SpawnWallLine(Vector(center[0] - halfX, center[1], center[2] + halfZ), Vector(center[0] + halfX, center[1], center[2] + halfZ), xSegments, 90);
+		SpawnWallLine(Vector(center[0] - halfX, center[1], center[2] - halfZ), Vector(center[0] - halfX, center[1], center[2] + halfZ), zSegments, 0);
+		SpawnWallLine(Vector(center[0] + halfX, center[1], center[2] - halfZ), Vector(center[0] + halfX, center[1], center[2] + halfZ), zSegments, 0);
+	}
+
+	void SpawnWallLine(vector start, vector finish, int segments, float direction)
+	{
+		for (int i = 0; i < segments; i++)
+		{
+			float t = (i + 0.5) / segments;
+			vector position = Vector(start[0] + ((finish[0] - start[0]) * t), start[1], start[2] + ((finish[2] - start[2]) * t));
+			position = DAFDMArena.SnapToGround(position);
+			Object wall = GetGame().CreateObject(m_Settings.arenaWallType, position, false, true);
+			if (wall)
+			{
+				wall.SetOrientation(Vector(direction, 0, 0));
 				m_RoundObjects.Insert(wall);
 			}
 		}

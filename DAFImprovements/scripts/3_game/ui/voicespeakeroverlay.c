@@ -34,10 +34,21 @@ class DAFVoiceSpeakerOverlay
 		UpdateText();
 	}
 
-	void RemoveSpeaker(string id)
+	void RemoveSpeaker(string id, string name = "")
 	{
+		if (id == "" && name != "")
+			id = name;
+
 		if (m_Speakers.Contains(id))
 			m_Speakers.Remove(id);
+		else if (name != "")
+		{
+			for (int i = m_Speakers.Count() - 1; i >= 0; i--)
+			{
+				if (m_Speakers.GetElement(i) == name)
+					m_Speakers.Remove(m_Speakers.GetKey(i));
+			}
+		}
 
 		UpdateText();
 	}

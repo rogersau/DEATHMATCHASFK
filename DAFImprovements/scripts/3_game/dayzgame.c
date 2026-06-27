@@ -17,6 +17,6 @@ modded class DayZGame
 		super.RemoveVoiceNotification(vonStopParams);
 
 		if (m_DAFVoiceSpeakerOverlay)
-			m_DAFVoiceSpeakerOverlay.RemoveSpeaker(vonStopParams.param2);
+			m_DAFVoiceSpeakerOverlay.RemoveSpeaker(vonStopParams.param2, vonStopParams.param1);
 	}
 }

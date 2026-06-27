@@ -30,7 +30,7 @@ The new mod should be opinionated by default. It should recreate the live DAF se
 4. As a DAF server owner, I want `DAFDeathmatch` to read only its own config at runtime, so that the replacement can evolve independently.
 5. As a DAF server owner, I want split config files for settings, arenas, and loadouts, so that each file stays understandable and editable.
 6. As a DAF server admin, I want opinionated defaults matching the live DAF experience, so that new installs feel like our server without hours of tuning.
-7. As a DAF server admin, I want round types such as normal, snipers, freshies, and juicer, so that rounds have recognizable flavors.
+7. As a DAF server admin, I want round types such as normal, snipers, freshies, and juiced, so that rounds have recognizable flavors.
 8. As a DAF server admin, I want round types to use weighted random selection, so that common modes happen often and special modes remain special.
 9. As a DAF server admin, I want round type selection to avoid immediate repeats with one reroll, so that the server feels varied without a complex scheduler.
 10. As a DAF server admin, I want round types to optionally restrict allowed arenas, so that some modes can run only where they make sense.
@@ -87,12 +87,12 @@ The new mod should be opinionated by default. It should recreate the live DAF se
 - `DAFImprovements` and `DAFServerImprovements` are transitional. Useful features should be ported into `DAFDeathmatch`; the final load shape should be `-mod=@DAFDeathmatch`.
 - The first playable cut may temporarily use `DAFImprovements` HUD/client pieces, but `DAFDeathmatch` should own deathmatch facts: round flavor, timer, score, kills, loadout pool, drops, and cleanup.
 - Runtime compatibility with Crimson Zamboni config is out. Migration should be an external converter/tool.
-- The converter should create a first playable `normal` round type from existing config rather than trying to infer snipers/freshies/juicer from old data.
+- The converter should create a first playable `normal` round type from existing config rather than trying to infer snipers/freshies/juiced from old data.
 - Config is split into `settings.json`, `arenas.json`, and `loadouts.json`.
 - `settings.json` owns round behavior, command character, feature defaults, admin IDs, and round type selection.
 - `arenas.json` owns spatial arena data and spawn positions.
 - `loadouts.json` owns loadout pools and weighted loadout entries.
-- Round types are first-class. Initial round flavors are `normal`, `snipers`, `freshies`, and `juicer`.
+- Round types are first-class. Initial round flavors are `normal`, `snipers`, `freshies`, and `juiced`.
 - Round flavor is always visible on the HUD with the timer. Arena name is not shown on the HUD.
 - Round type selection is weighted random with one anti-repeat reroll.
 - Round types can restrict arenas; no restriction means any arena.

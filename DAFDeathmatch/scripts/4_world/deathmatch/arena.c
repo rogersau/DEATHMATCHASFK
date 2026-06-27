@@ -3,6 +3,11 @@ class DAFDMArenaConfig
 	string name;
 	ref array<float> center = new array<float>();
 	float radius = 250;
+	bool rectangular = false;
+	float xSize = 0;
+	float zSize = 0;
+	int minimumPlayers = 0;
+	int maximumPlayers = 0;
 	ref array<ref array<float>> playerSpawns = new array<ref array<float>>();
 }
 
@@ -11,13 +16,19 @@ class DAFDMArena
 	string m_Name;
 	vector m_Center;
 	float m_Radius;
+	bool m_Rectangular;
+	float m_XSize;
+	float m_ZSize;
 	ref array<vector> m_PlayerSpawns;
 
-	void DAFDMArena(string name, vector center, float radius)
+	void DAFDMArena(string name, vector center, float radius, bool rectangular = false, float xSize = 0, float zSize = 0)
 	{
 		m_Name = name;
 		m_Center = center;
 		m_Radius = radius;
+		m_Rectangular = rectangular;
+		m_XSize = xSize;
+		m_ZSize = zSize;
 		m_PlayerSpawns = new array<vector>();
 	}
 
@@ -34,6 +45,21 @@ class DAFDMArena
 	float GetRadius()
 	{
 		return m_Radius;
+	}
+
+	bool IsRectangular()
+	{
+		return m_Rectangular;
+	}
+
+	float GetXSize()
+	{
+		return m_XSize;
+	}
+
+	float GetZSize()
+	{
+		return m_ZSize;
 	}
 
 	vector GetRandomPlayerSpawn()
@@ -61,7 +87,11 @@ class DAFDMArena
 
 	static DAFDMArena FromConfig(DAFDMArenaConfig config)
 	{
-		DAFDMArena arena = new DAFDMArena(config.name, VectorFromArray(config.center), config.radius);
+		float radius = config.radius;
+		if (radius <= 0)
+			radius = Math.Sqrt((config.xSize * config.xSize) + (config.zSize * config.zSize)) * 0.5;
+
+		DAFDMArena arena = new DAFDMArena(config.name, VectorFromArray(config.center), radius, config.rectangular, config.xSize, config.zSize);
 
 		foreach (array<float> spawn: config.playerSpawns)
 		{
@@ -118,13 +148,27 @@ class DAFDMArenaRegistry
 
 		if (settings)
 		{
+			array<ref DAFDMArena> rotation = new array<ref DAFDMArena>();
 			foreach (string arenaName: settings.arenaRotation)
 			{
 				DAFDMArena arena = GetByName(arenaName);
-				if (arena)
-					return arena;
+				if (arena && !IsExcluded(settings, arena.GetName()))
+					rotation.Insert(arena);
 			}
+
+			if (rotation.Count() > 0)
+				return rotation.GetRandomElement();
 		}
+
+		array<ref DAFDMArena> allowed = new array<ref DAFDMArena>();
+		foreach (DAFDMArena candidate: m_Arenas)
+		{
+			if (candidate && (!settings || !IsExcluded(settings, candidate.GetName())))
+				allowed.Insert(candidate);
+		}
+
+		if (allowed.Count() > 0)
+			return allowed.GetRandomElement();
 
 		return m_Arenas.GetRandomElement();
 	}
@@ -140,7 +184,7 @@ class DAFDMArenaRegistry
 			foreach (string allowedName: roundType.arenaNames)
 			{
 				DAFDMArena allowedArena = GetByName(allowedName);
-				if (allowedArena)
+				if (allowedArena && (!settings || !IsExcluded(settings, allowedArena.GetName())))
 					allowed.Insert(allowedArena);
 			}
 
@@ -160,6 +204,11 @@ class DAFDMArenaRegistry
 		}
 
 		return null;
+	}
+
+	bool IsExcluded(DAFDMSettings settings, string arenaName)
+	{
+		return settings && settings.excludedArenas && settings.excludedArenas.Find(arenaName) >= 0;
 	}
 
 	private void FillDefaultArenaConfigs(array<ref DAFDMArenaConfig> configs)

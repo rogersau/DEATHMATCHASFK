@@ -45,33 +45,49 @@ class DAFServerLowPopAmmoRefill
 		if (!player || !player.IsAlive())
 			return;
 
+		bool changed = false;
 		array<EntityAI> items = new array<EntityAI>();
 		player.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
 
 		foreach (EntityAI item: items)
 		{
-			RefillMagazine(item);
+			changed = RefillMagazine(item) || changed;
 		}
 
-		RefillMagazine(player.GetHumanInventory().GetEntityInHands());
+		changed = RefillMagazine(player.GetHumanInventory().GetEntityInHands()) || changed;
+		if (changed)
+			player.SetSynchDirty();
 	}
 
-	private static void RefillMagazine(EntityAI item)
+	private static bool RefillMagazine(EntityAI item)
 	{
+		bool changed = false;
 		Weapon_Base weapon = Weapon_Base.Cast(item);
 		if (weapon)
 		{
 			for (int muzzle = 0; muzzle < weapon.GetMuzzleCount(); muzzle++)
 			{
-				RefillMagazine(weapon.GetMagazine(muzzle));
+				changed = RefillMagazine(weapon.GetMagazine(muzzle)) || changed;
+			}
+
+			if (changed)
+			{
+				weapon.SetSynchDirty();
+				weapon.Synchronize();
 			}
 		}
 
 		Magazine magazine = Magazine.Cast(item);
 		if (!magazine || magazine.IsAmmoPile())
-			return;
+			return changed;
 
 		if (magazine.GetAmmoCount() < magazine.GetAmmoMax())
+		{
 			magazine.ServerSetAmmoMax();
+			magazine.SetSynchDirty();
+			changed = true;
+		}
+
+		return changed;
 	}
 }
