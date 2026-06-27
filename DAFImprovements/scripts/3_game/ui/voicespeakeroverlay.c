@@ -6,8 +6,12 @@ class DAFVoiceSpeakerOverlay
 
 	void DAFVoiceSpeakerOverlay()
 	{
-		m_Root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/VoiceSpeakers.layout", null);
-		m_Text = TextWidget.Cast(m_Root.FindAnyWidget("VoiceSpeakersText"));
+		m_Root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/voicespeakers.layout", null);
+		if (m_Root)
+			m_Text = TextWidget.Cast(m_Root.FindAnyWidget("VoiceSpeakersText"));
+		else
+			Print("DAFImprovements: failed to create voice speaker HUD widget");
+
 		m_Speakers = new map<string, string>();
 		UpdateText();
 	}

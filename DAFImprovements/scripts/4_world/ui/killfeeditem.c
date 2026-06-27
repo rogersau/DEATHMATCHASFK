@@ -19,38 +19,60 @@ class KillFeedItem
 		parent = par;
 		if (type)
 		{
-			root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/MurderInfo.layout", par.GetRoot());
+			root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/murderinfo.layout", par.GetRoot());
+			if (!root)
+			{
+				Print("DAFImprovements: failed to create killfeed item widget");
+				destroyed = true;
+				return;
+			}
+
 			murderName = TextWidget.Cast(root.FindAnyWidget("MurderName"));
 			targetName = TextWidget.Cast(root.FindAnyWidget("TargetName"));
 			dst = TextWidget.Cast(root.FindAnyWidget("KillDst"));
 			murderWeapon = ItemPreviewWidget.Cast(root.FindAnyWidget("MurderWeapon"));
 
-			murderName.SetText(FormatNick(mName));
-			targetName.SetText(FormatNick(tName));
+			if (murderName)
+				murderName.SetText(FormatNick(mName));
+			if (targetName)
+				targetName.SetText(FormatNick(tName));
 			
 			// Format distance text with headshot indicator
 			string distanceText = dist.ToString() + "m";
 			if (headshot == 1)
 				distanceText = distanceText + " [HS]";
-			dst.SetText(distanceText);
+			if (dst)
+				dst.SetText(distanceText);
 
 			SetWeapon(wType);
 		}
 		else
 		{
-			root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/MurderInfoExtra.layout", par.GetRoot());
+			root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/murderinfoextra.layout", par.GetRoot());
+			if (!root)
+			{
+				Print("DAFImprovements: failed to create killfeed death message widget");
+				destroyed = true;
+				return;
+			}
+
 			targetName = TextWidget.Cast(root.FindAnyWidget("TargetName"));
 			murderName = TextWidget.Cast(root.FindAnyWidget("DeathMsg"));
-			murderName.SetText(msg);
-			targetName.SetText(FormatNick(tName));
+			if (murderName)
+				murderName.SetText(msg);
+			if (targetName)
+				targetName.SetText(FormatNick(tName));
 		}
 
 		background = root.FindAnyWidget("Background");
 
 		float width, height;
 		width = GetFeedWidth();
-		background.GetSize(null, height);
-		background.SetSize(width, height);
+		if (background)
+		{
+			background.GetSize(null, height);
+			background.SetSize(width, height);
+		}
 
 
 		GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.Destroy, 5000, false);
@@ -67,6 +89,9 @@ class KillFeedItem
 	void SetWeapon(string data)
 	{
 		if (data == string.Empty)
+			return;
+
+		if (!murderWeapon)
 			return;
 
 		TStringArray parts = new TStringArray;
@@ -177,15 +202,14 @@ class KillFeedItem
 
 	float GetFeedWidth()
 	{
+		if (!murderName || !targetName)
+			return 0;
+
 		float start, end, width;
 		murderName.GetPos(null, start);
 		targetName.GetPos(null, end);
 		targetName.GetSize(width, null);
 		width = start + end + width;
-
-		Print("Width "+width);
-		Print("start "+start);
-		Print("end "+end);
 		return width;
 	}
 }

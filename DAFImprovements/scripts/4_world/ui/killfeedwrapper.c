@@ -2,15 +2,31 @@ class KillFeedWrapper
 {
 	private Widget root;
 	private Widget playerCountRoot;
+	private Widget roundTimerRoot;
 	private TextWidget playerCount;
+	private TextWidget roundTimer;
+	private string roundLabel;
 	private ref array<ref KillFeedItem> items;
 
 	void KillFeedWrapper()
 	{
-		root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/FeedWrapper.layout", null);
-		playerCountRoot = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/PlayerCount.layout", null);
-		playerCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("PlayerCount"));
+		root = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/feedwrapper.layout", null);
+		playerCountRoot = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/playercount.layout", null);
+		roundTimerRoot = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/roundtimer.layout", null);
+
+		if (playerCountRoot)
+			playerCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("PlayerCount"));
+		else
+			Print("DAFImprovements: failed to create player count HUD widget");
+
+		if (roundTimerRoot)
+			roundTimer = TextWidget.Cast(roundTimerRoot.FindAnyWidget("RoundTimer"));
+		else
+			Print("DAFImprovements: failed to create round timer HUD widget");
+
 		items = new array<ref KillFeedItem>();
+		roundLabel = "Round";
+		SetRoundTimeRemaining(-1);
 	}
 
 	Widget GetRoot()
@@ -42,6 +58,36 @@ class KillFeedWrapper
 			playerCount.SetText("Players: " + count.ToString());
 	}
 
+	void SetRoundTimeRemaining(int seconds)
+	{
+		if (!roundTimerRoot || !roundTimer)
+			return;
+
+		if (seconds < 0)
+		{
+			roundTimer.SetText("");
+			roundTimerRoot.Show(false);
+			return;
+		}
+
+		int minutes = seconds / 60;
+		int remainder = seconds % 60;
+		string remainderText = remainder.ToString();
+		if (remainder < 10)
+			remainderText = "0" + remainderText;
+
+		roundTimer.SetText(roundLabel + " " + minutes.ToString() + ":" + remainderText);
+		roundTimerRoot.Show(true);
+	}
+
+	void SetRoundLabel(string label)
+	{
+		if (label == "")
+			roundLabel = "Round";
+		else
+			roundLabel = label;
+	}
+
 	void ClearItems()
 	{
 		for (int i = items.Count() - 1; i >= 0; i--)
@@ -62,6 +108,12 @@ class KillFeedWrapper
 		{
 			playerCountRoot.Unlink();
 			playerCountRoot = null;
+		}
+
+		if (roundTimerRoot)
+		{
+			roundTimerRoot.Unlink();
+			roundTimerRoot = null;
 		}
 
 		if (root)
