@@ -43,7 +43,7 @@ class DAFDeathmatch
 
 	void Start()
 	{
-		StartRound();
+		EnsureRoundReady();
 	}
 
 	void StartRound()
@@ -92,8 +92,16 @@ class DAFDeathmatch
 		if (!player)
 			return;
 
-		if (m_RoundActive)
-			RespawnPlayer(player);
+		if (m_CurrentArena)
+			m_CurrentArena.FaceCenter(player);
+	}
+
+	void ResetConnectedPlayer(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		m_Scoreboard.ResetPlayer(identity);
 	}
 
 	void OnPlayerKilled(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -220,6 +228,9 @@ class DAFDeathmatch
 		}
 		else if (command == "respawn")
 		{
+			if (!CanUseRespawnCommand(source))
+				return;
+
 			RespawnPlayer(source);
 			DAFDMChat.MessagePlayer(source, "Respawned");
 		}
@@ -258,14 +269,14 @@ class DAFDeathmatch
 		}
 		else if (command == "spawndummy")
 		{
-			if (!RequireAdmin(source))
+			if (!RequireAdminTestCommand(source))
 				return;
 
 			SpawnTestDummy(source);
 		}
 		else if (command == "cleardummies")
 		{
-			if (!RequireAdmin(source))
+			if (!RequireAdminTestCommand(source))
 				return;
 
 			ClearTestDummies();
@@ -273,7 +284,7 @@ class DAFDeathmatch
 		}
 		else if (command == "testdrop")
 		{
-			if (!RequireAdmin(source))
+			if (!RequireAdminTestCommand(source))
 				return;
 
 			SpawnTestDrop(source, args);
@@ -311,6 +322,33 @@ class DAFDeathmatch
 			return true;
 
 		DAFDMChat.MessagePlayer(source, "Admin command");
+		return false;
+	}
+
+	bool CanUseRespawnCommand(PlayerBase source)
+	{
+		if (!source)
+			return false;
+
+		if (m_Settings.IsAdmin(source.GetIdentity()))
+			return true;
+
+		if (m_Settings.enablePlayerRespawnCommand)
+			return true;
+
+		DAFDMChat.MessagePlayer(source, "Respawn command is admin only");
+		return false;
+	}
+
+	bool RequireAdminTestCommand(PlayerBase source)
+	{
+		if (!RequireAdmin(source))
+			return false;
+
+		if (m_Settings.enableAdminTestCommands)
+			return true;
+
+		DAFDMChat.MessagePlayer(source, "Admin test commands are disabled");
 		return false;
 	}
 
@@ -522,6 +560,29 @@ class DAFDeathmatch
 
 		if (oldPlayer && oldPlayer != player)
 			GetGame().ObjectDelete(oldPlayer);
+	}
+
+	vector GetRandomPlayerSpawnPosition()
+	{
+		EnsureRoundReady();
+
+		if (m_CurrentArena)
+			return m_CurrentArena.GetRandomPlayerSpawn();
+
+		return "0 0 0";
+	}
+
+	void StartingEquipSetup(PlayerBase player)
+	{
+		EquipPlayer(player);
+	}
+
+	void EnsureRoundReady()
+	{
+		if (m_RoundActive && m_CurrentArena)
+			return;
+
+		StartRound();
 	}
 
 	void SpawnTestDummy(PlayerBase source)

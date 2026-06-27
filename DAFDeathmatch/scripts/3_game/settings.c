@@ -30,6 +30,8 @@ class DAFDMSettings
 	int arenaWallSegments = 24;
 	int corpseCleanupSeconds = 5;
 	int deathDropCleanupSeconds = 60;
+	bool enableAdminTestCommands = false;
+	bool enablePlayerRespawnCommand = false;
 	ref TStringArray arenaRotation = new TStringArray();
 	ref TStringArray excludedArenas = new TStringArray();
 	ref TStringArray admins = new TStringArray();

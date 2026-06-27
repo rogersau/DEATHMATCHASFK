@@ -22,6 +22,21 @@ class DAFDMScoreboard
 		DAFRoundStats.Reset("DAFDeathmatch.Scoreboard.Reset");
 	}
 
+	void ResetPlayer(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		for (int i = m_Scores.Count() - 1; i >= 0; i--)
+		{
+			DAFDMScore score = m_Scores[i];
+			if (score && score.id == identity.GetId())
+				m_Scores.Remove(i);
+		}
+
+		DAFRoundStats.ResetPlayer(identity, "DAFDeathmatch.Scoreboard.ResetPlayer");
+	}
+
 	void AddKill(PlayerIdentity killer, PlayerIdentity victim)
 	{
 		if (killer)

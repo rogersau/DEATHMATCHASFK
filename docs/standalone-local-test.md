@@ -52,9 +52,12 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 
 `@forcearena` and `@forcenext` are admin test helpers. Explicitly forced arenas can include arenas excluded from normal rotation, which is useful for checking old problem arenas without putting them back into live selection.
 
+`@spawndummy`, `@cleardummies`, and `@testdrop` require admin access and `enableAdminTestCommands = true` in `settings.json`. `@respawn` is admin-only unless `enablePlayerRespawnCommand = true`.
+
 ## Smoke Checklist
 
 - Clothes spawn.
+- First spawn appears directly in the current arena without a visible wrong-position flash.
 - Weapon spawns in normal, snipers, freshies, and juiced rounds.
 - Snipers rounds always provide a primary rifle.
 - Timer appears on first join.

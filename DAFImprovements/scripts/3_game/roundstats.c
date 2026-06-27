@@ -24,6 +24,20 @@ class DAFRoundStats
 			Print("DAFImprovements: resetting round K:D stats");
 	}
 
+	static void ResetPlayer(PlayerIdentity identity, string source = "")
+	{
+		if (!identity)
+			return;
+
+		EnsureMaps();
+		string id = identity.GetId();
+		s_RoundKills.Set(id, 0);
+		s_RoundDeaths.Set(id, 0);
+
+		if (source != "")
+			Print("DAFImprovements: resetting player round K:D stats from " + source);
+	}
+
 	static void Ensure(PlayerIdentity identity)
 	{
 		if (!identity)
