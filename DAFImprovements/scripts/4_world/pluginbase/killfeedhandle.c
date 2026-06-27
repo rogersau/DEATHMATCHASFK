@@ -125,9 +125,21 @@ class KillFeedHandle : PluginBase
 
 	void ResetRoundStats()
 	{
-		Print("DAFImprovements: resetting round K:D stats");
-		RoundKills.Clear();
-		RoundDeaths.Clear();
+		DAFRoundStats.Reset("KillFeedHandle.ResetRoundStats");
+		SendRoundStatsReset();
+	}
+
+	void SendRoundStatsReset()
+	{
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		for (int i = 0; i < players.Count(); i++)
+		{
+			PlayerBase recipient = PlayerBase.Cast(players[i]);
+			if (recipient && recipient.GetIdentity())
+				recipient.RPCSingleParam(-74700008, new Param1<bool>(true), true, recipient.GetIdentity());
+		}
 	}
 
 	void EnsureRoundStats(PlayerIdentity identity)
@@ -135,12 +147,7 @@ class KillFeedHandle : PluginBase
 		if (!identity)
 			return;
 
-		string id = identity.GetId();
-		if (!RoundKills.Contains(id))
-			RoundKills.Set(id, 0);
-
-		if (!RoundDeaths.Contains(id))
-			RoundDeaths.Set(id, 0);
+		DAFRoundStats.Ensure(identity);
 	}
 
 	void AddRoundKill(PlayerIdentity identity)
@@ -148,9 +155,7 @@ class KillFeedHandle : PluginBase
 		if (!identity)
 			return;
 
-		EnsureRoundStats(identity);
-		string id = identity.GetId();
-		RoundKills.Set(id, RoundKills.Get(id) + 1);
+		DAFRoundStats.AddKill(identity);
 	}
 
 	void AddRoundDeath(PlayerIdentity identity)
@@ -158,9 +163,7 @@ class KillFeedHandle : PluginBase
 		if (!identity)
 			return;
 
-		EnsureRoundStats(identity);
-		string id = identity.GetId();
-		RoundDeaths.Set(id, RoundDeaths.Get(id) + 1);
+		DAFRoundStats.AddDeath(identity);
 	}
 
 	int GetRoundKills(PlayerIdentity identity)
@@ -168,8 +171,7 @@ class KillFeedHandle : PluginBase
 		if (!identity)
 			return 0;
 
-		EnsureRoundStats(identity);
-		return RoundKills.Get(identity.GetId());
+		return DAFRoundStats.GetKills(identity);
 	}
 
 	int GetRoundDeaths(PlayerIdentity identity)
@@ -177,8 +179,7 @@ class KillFeedHandle : PluginBase
 		if (!identity)
 			return 0;
 
-		EnsureRoundStats(identity);
-		return RoundDeaths.Get(identity.GetId());
+		return DAFRoundStats.GetDeaths(identity);
 	}
 
 	string GetWeaponData(EntityAI weapon)

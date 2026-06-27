@@ -5,7 +5,7 @@ FrameWidgetClass DAFVoiceSpeakersRoot {
  vexactpos 1
  hexactsize 1
  vexactsize 1
- visible 0
+ visible 1
  {
   TextWidgetClass VoiceSpeakersText {
    ignorepointer 1

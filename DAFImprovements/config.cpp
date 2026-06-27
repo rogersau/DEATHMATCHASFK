@@ -36,15 +36,15 @@ class CfgMods
 		dependencies[] = {"Game","World","Mission"};
 		class defs
 		{
+			class gameScriptModule
+			{
+				value = "";
+				files[] = {"DAFImprovements/scripts/3_Game"};
+			};
 			class worldScriptModule
 			{
 				value = "";
 				files[] = {"DAFImprovements/scripts/4_World"};
-			};
-			class missionScriptModule
-			{
-				value = "";
-				files[] = {"DAFImprovements/scripts/5_Mission"};
 			};
 		};
 	};

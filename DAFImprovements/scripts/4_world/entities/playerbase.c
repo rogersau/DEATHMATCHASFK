@@ -134,7 +134,13 @@ modded class PlayerBase extends ManBase
 				snapshot.Restore();
 		}
 
-		m_DAF_ItemDamageSnapshots.Clear();
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.DAF_ClearCarriedItemDamageSnapshots, 1500, false);
+	}
+
+	void DAF_ClearCarriedItemDamageSnapshots()
+	{
+		if (m_DAF_ItemDamageSnapshots)
+			m_DAF_ItemDamageSnapshots.Clear();
 	}
 
 	void DAF_FullHealFromSaline()
@@ -309,6 +315,8 @@ modded class PlayerBase extends ManBase
 
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 		DAF_RestoreCarriedItemDamage();
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.DAF_RestoreCarriedItemDamage, 100, false);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.DAF_RestoreCarriedItemDamage, 500, false);
 	}
 
 	override void EEKilled(Object killer)
@@ -404,6 +412,15 @@ modded class PlayerBase extends ManBase
 				GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 100, false);
 				GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 750, false);
 				GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 1500, false);
+			}
+			else if (rpc_type == -74700008)
+			{
+				Param1<bool> resetData;
+				if (!ctx.Read(resetData))
+					return;
+
+				if (s_KillFeed)
+					s_KillFeed.ClearItems();
 			}
 		}
 	}

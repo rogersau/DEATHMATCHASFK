@@ -42,7 +42,7 @@ class KillFeedWrapper
 			playerCount.SetText("Players: " + count.ToString());
 	}
 
-	void Destroy()
+	void ClearItems()
 	{
 		for (int i = items.Count() - 1; i >= 0; i--)
 		{
@@ -50,6 +50,13 @@ class KillFeedWrapper
 			if (item)
 				item.Destroy();
 		}
+
+		items.Clear();
+	}
+
+	void Destroy()
+	{
+		ClearItems();
 
 		if (playerCountRoot)
 		{
