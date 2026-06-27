@@ -422,6 +422,24 @@ modded class PlayerBase extends ManBase
 				if (s_KillFeed)
 					s_KillFeed.ClearItems();
 			}
+			else if (rpc_type == -74700009)
+			{
+				Param1<int> roundTimeData;
+				if (!ctx.Read(roundTimeData))
+					return;
+
+				if (s_KillFeed)
+					s_KillFeed.SetRoundTimeRemaining(roundTimeData.param1);
+			}
+			else if (rpc_type == -74700010)
+			{
+				Param1<string> roundLabelData;
+				if (!ctx.Read(roundLabelData))
+					return;
+
+				if (s_KillFeed)
+					s_KillFeed.SetRoundLabel(roundLabelData.param1);
+			}
 		}
 	}
 

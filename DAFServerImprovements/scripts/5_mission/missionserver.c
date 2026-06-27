@@ -5,6 +5,7 @@ modded class MissionServer
 		super.OnRoundStart(arena);
 
 		DAFServerLowPopAmmoRefill.Start();
+		DAFServerRoundTimer.Start(DAFServer_GetRoundMinutes());
 		DAFServer_ResetRoundStats("MissionServer.OnRoundStart");
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.DAFServer_CheckInfectedCleanup, 1000, false, "MissionServer.OnRoundStart");
 	}
@@ -13,6 +14,7 @@ modded class MissionServer
 	{
 		super.OnRoundEnd(arena);
 
+		DAFServerRoundTimer.Stop();
 		DAFServer_ResetRoundStats("MissionServer.OnRoundEnd");
 	}
 
@@ -47,7 +49,17 @@ modded class MissionServer
 		super.InvokeOnConnect(player, identity);
 
 		DAFServerLowPopAmmoRefill.Start();
+		DAFServerRoundTimer.Broadcast();
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.DAFServer_CheckInfectedCleanup, 1000, false, "MissionServer.InvokeOnConnect");
+	}
+
+	int DAFServer_GetRoundMinutes()
+	{
+		DeathmatchSettings settings = DeathmatchSettings.Instance();
+		if (!settings)
+			return 0;
+
+		return settings.roundMinutes;
 	}
 
 	void DAFServer_CheckInfectedCleanup(string source)

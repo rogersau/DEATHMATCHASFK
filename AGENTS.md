@@ -1,5 +1,23 @@
 # Agent Notes
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `rogersau/DEATHMATCHASFK`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a single-context domain-doc layout. See `docs/agents/domain.md`.
+
+## Domain Context
+
+Read `CONTEXT.md` before making architecture, feature-planning, or issue-writing decisions. It contains the current addon split, the transitional Crimson Zamboni compatibility model, and the long-term standalone `DAFDeathmatch` direction.
+
 ## Addon Split
 
 This repo has two DayZ addons with a deliberate client/server boundary.
@@ -12,10 +30,12 @@ Put features here when they are generic DayZ behavior, UI, or shared prediction/
 
 - Killfeed UI and HUD widgets
 - Player count UI
+- Top-center round time remaining HUD
+- Active VOIP speaker overlay, driven by client-received VON notifications
 - Per-round kill/death display sent through the killfeed
 - Complete weapon display parsing for killfeed events
 - Client-side and server-side footwear drop/removal prevention
-- IV saline full-heal behavior
+- IV saline full-heal behavior, currently balanced with an 8 second apply time
 - IV saline drop/stash prevention and delete-on-death behavior
 - Carried inventory damage protection
 - Infected damage blocking
@@ -37,8 +57,12 @@ Put code here when it references Deathmatch-specific classes, callbacks, or obje
 - Deathmatch command/autorespawn behavior
 - Discord killfeed/round-summary enhancements
 - End-of-round highlights such as furthest shot and top weapon
+- Direct Deathmatch scoreboard reset hook for round K/D reset reliability
 - Persisted auto-respawn preferences
+- Round timer RPC broadcasts that feed the shared HUD
 - Cleanup rules tied to Deathmatch settings, such as deleting spawned infected when player count reaches `forceInfectedPlayerLimit`
+- Low-pop magazine refill tied to `forceInfectedPlayerLimit`
+- Deathmatch loadout post-processing, including bandage/morphine/saline quickbar slots and Easter Egg removal
 - Server RPC sends that coordinate with `DAFImprovements` client handlers
 
 Keep this addon small. If a feature can run without importing or modding a Deathmatch class, prefer `DAFImprovements`.
@@ -58,3 +82,19 @@ The server additionally loads:
 ```
 
 `DAFServerImprovements` depends on both `DAFImprovements` and `CrimsonZamboniDeathmatch`.
+
+## Standalone Deathmatch
+
+`DAFDeathmatch` is the in-progress replacement for the Crimson Zamboni Deathmatch server mod.
+
+Use `DAFDeathmatch` when building replacement-owned core gameplay:
+
+- Settings and arena config owned by DAF
+- Round start/end lifecycle
+- Arena rotation and spawn selection
+- Player loadouts and quickbar assignment
+- Scoring and round K/D source of truth
+- Auto-respawn behavior
+- Future command, vote, Discord, cleanup, infected, and event systems
+
+Do not load `DAFDeathmatch` together with `CrimsonZamboniDeathmatch` in the same test. They both want to own round lifecycle, spawning, and scoring.

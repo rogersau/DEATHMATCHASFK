@@ -10,6 +10,7 @@ Shared/client-visible addon for the killfeed and HUD:
 
 - Killfeed UI
 - Player count view
+- Top-center round time remaining view
 - Active VOIP speaker overlay
 - Per-round kills/deaths display
 - Full weapon display support from server kill events
@@ -36,6 +37,7 @@ Server-side addon for Crimson Zamboni Deathmatch compatibility and deathmatch ga
 - End-of-round highlights for furthest shot and top weapon
 - Persisted auto-respawn preference
 - Server signal that asks clients to repair the stuck respawn cursor
+- Round timer broadcasts for the shared HUD
 - Infected cleanup when player count reaches `forceInfectedPlayerLimit`
 - Low-pop magazine auto-refill while player count is below `forceInfectedPlayerLimit`
 - Survival item quickbar normalization: bandage key 3, morphine key 4, saline key 5
@@ -48,3 +50,25 @@ Load this after the reference deathmatch mod as a server mod:
 ```
 
 `DAFServerImprovements` depends on both `DAFImprovements` and `CrimsonZamboniDeathmatch`.
+
+### DAFDeathmatch
+
+Standalone replacement Deathmatch server addon under active development.
+
+Current first slice:
+
+- Own settings file at `$profile:DAFDeathmatch/settings.json`
+- Own arena file at `$profile:DAFDeathmatch/arenas.json`
+- Basic round start/end lifecycle
+- Top-center round timer broadcast to `DAFImprovements`
+- Basic player spawning into the selected arena
+- Basic weapon/survival item loadout with quickbar slots
+- Basic internal scoreboard shell, with shared HUD K:D reset at round start
+- Basic player commands: `help`, `players`, `timeleft`, `score`, `autorespawn`, `version`
+
+Test this separately from Crimson Zamboni. Do not load both round managers together:
+
+```text
+-mod=@DAFImprovements
+-serverMod=@DAFDeathmatch
+```
