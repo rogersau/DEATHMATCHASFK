@@ -180,3 +180,15 @@ Death-drop rules:
 - Death-dropped weapons have no marker or beacon; they should feel like normal grounded loot.
 
 The one-mag pickup bonus should be granted only when another player picks up a tracked death-dropped weapon.
+
+## Spawn Safety And Team Modes
+
+Standalone `DAFDeathmatch` should improve on Crimson Zamboni by avoiding obviously unfair spawn moments. Player spawn selection should score configured arena spawns instead of choosing blindly, reject spawns that are too close to alive enemies, and reject spawns inside an enemy's forward view cone. If every authored spawn is pressured, choose the least-bad spawn rather than failing the respawn.
+
+Team deathmatch is a first-class round mode, not a separate mod. Round types default to free-for-all unless their `gameMode` is set to `tdm`. TDM should use random balanced team assignment by default, while supporting future event operations through config-based player ID preassignment. Preassigned players keep their configured team; unassigned players fill the smaller team.
+
+TDM scoring should count enemy kills toward both player K:D and team score. Friendly kills should not inflate team score. Spawn safety should become team-aware during TDM, treating opposing teams as enemies for close-range and view-cone rejection.
+
+Admins can force a one-off TDM round for testing or events without rewriting config. This is an operational override for the next round only; configured round types remain the durable source of normal rotation behavior.
+
+TDM loadouts must preserve readable team identity. After the normal loadout outfit roll, the server enforces configured team clothing for red and blue teams by replacing body, legs, feet, mask, and armband slots with matching tracksuits, sneaker-style shoes, bandana face coverings, and armbands before weapons and inventory items are created.

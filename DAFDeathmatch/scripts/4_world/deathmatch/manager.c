@@ -7,12 +7,15 @@ class DAFDeathmatch
 	private ref Timer m_RoundTimer;
 	private DAFDMArena m_CurrentArena;
 	private DAFDMRoundTypeConfig m_CurrentRoundType;
+	private string m_CurrentGameMode;
 	private string m_LastRoundTypeName;
 	private string m_ForcedRoundTypeName;
 	private string m_ForcedArenaName;
+	private string m_ForcedGameMode;
 	private bool m_RoundActive;
 	private ref map<string, bool> m_AutoRespawnOverrides;
 	private ref map<string, string> m_LastLoadoutByPlayer;
+	private ref map<string, string> m_TeamByPlayerId;
 	private ref array<Object> m_RoundObjects;
 	private ref array<PlayerBase> m_TestDummies;
 	private ref array<PlayerBase> m_PendingCorpseCleanup;
@@ -31,10 +34,13 @@ class DAFDeathmatch
 
 		m_Scoreboard = new DAFDMScoreboard();
 		m_RoundTimer = new Timer();
+		m_CurrentGameMode = "ffa";
 		m_ForcedRoundTypeName = "";
 		m_ForcedArenaName = "";
+		m_ForcedGameMode = "";
 		m_AutoRespawnOverrides = new map<string, bool>();
 		m_LastLoadoutByPlayer = new map<string, string>();
+		m_TeamByPlayerId = new map<string, string>();
 		m_RoundObjects = new array<Object>();
 		m_TestDummies = new array<PlayerBase>();
 		m_PendingCorpseCleanup = new array<PlayerBase>();
@@ -50,6 +56,7 @@ class DAFDeathmatch
 	{
 		CleanupRoundObjects();
 		m_CurrentRoundType = PickRoundType();
+		m_CurrentGameMode = PickGameMode(m_CurrentRoundType);
 		m_CurrentArena = PickForcedArena();
 		if (!m_CurrentArena)
 			m_CurrentArena = m_Arenas.PickArenaForRound(m_Settings, m_CurrentRoundType);
@@ -62,6 +69,7 @@ class DAFDeathmatch
 
 		m_RoundActive = true;
 		m_Scoreboard.Reset();
+		m_TeamByPlayerId.Clear();
 		PrintFormat("DAFDeathmatch: %1 round started in arena %2", GetRoundDisplayName(), m_CurrentArena.GetName());
 
 		SpawnArenaWalls();
@@ -92,6 +100,8 @@ class DAFDeathmatch
 		if (!player)
 			return;
 
+		AssignTeam(player.GetIdentity());
+
 		if (m_CurrentArena)
 			m_CurrentArena.FaceCenter(player);
 	}
@@ -102,6 +112,7 @@ class DAFDeathmatch
 			return;
 
 		m_Scoreboard.ResetPlayer(identity);
+		AssignTeam(identity);
 	}
 
 	void OnPlayerKilled(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -109,10 +120,7 @@ class DAFDeathmatch
 		if (!victim)
 			return;
 
-		if (killer && killer != victim)
-			m_Scoreboard.AddKill(killer.GetIdentity(), victim.GetIdentity());
-		else if (victim.GetIdentity())
-			m_Scoreboard.Ensure(victim.GetIdentity()).deaths++;
+		HandleKillScore(victim, killer);
 
 		UntrackTestDummy(victim);
 		EntityAI deathDrop = HandleDeathDrop(victim);
@@ -123,6 +131,38 @@ class DAFDeathmatch
 		PlayerIdentity identity = victim.GetIdentity();
 		if (ShouldAutoRespawn(identity))
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnIdentity, m_Settings.respawnSeconds * 1000, false, identity, victim);
+	}
+
+	void HandleKillScore(PlayerBase victim, PlayerBase killer)
+	{
+		PlayerIdentity victimIdentity = victim.GetIdentity();
+		PlayerIdentity killerIdentity;
+		if (killer)
+			killerIdentity = killer.GetIdentity();
+
+		if (!killer || killer == victim)
+		{
+			m_Scoreboard.AddDeath(victimIdentity);
+			return;
+		}
+
+		if (IsTeamRound())
+		{
+			string victimTeam = GetTeamForIdentity(victimIdentity);
+			string killerTeam = GetTeamForIdentity(killerIdentity);
+			if (victimTeam != "" && killerTeam != "" && victimTeam == killerTeam)
+			{
+				m_Scoreboard.AddDeath(victimIdentity);
+				PrintFormat("DAFDeathmatch: friendly kill ignored for team score team=%1", killerTeam);
+				return;
+			}
+
+			m_Scoreboard.AddKill(killerIdentity, victimIdentity);
+			m_Scoreboard.AddTeamKill(killerTeam);
+			return;
+		}
+
+		m_Scoreboard.AddKill(killerIdentity, victimIdentity);
 	}
 
 	void OnPlayerPickedUpItem(PlayerBase player, EntityAI item)
@@ -212,11 +252,23 @@ class DAFDeathmatch
 		else if (command == "score")
 		{
 			PlayerIdentity identity = source.GetIdentity();
-			DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity)));
+			if (IsTeamRound())
+			{
+				string team = GetTeamForIdentity(identity);
+				DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D | Team: %3 %4", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), team, m_Scoreboard.GetTeamScore(team)));
+			}
+			else
+			{
+				DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity)));
+			}
 		}
 		else if (command == "status")
 		{
 			SendStatus(source);
+		}
+		else if (command == "teams")
+		{
+			SendTeams(source);
 		}
 		else if (command == "inspect")
 		{
@@ -267,6 +319,20 @@ class DAFDeathmatch
 
 			ForceNext(source, args);
 		}
+		else if (command == "forcetdm")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			ForceTeamDeathmatch(source, args);
+		}
+		else if (command == "shuffleteams")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			ShuffleTeams(source);
+		}
 		else if (command == "spawndummy")
 		{
 			if (!RequireAdminTestCommand(source))
@@ -310,9 +376,10 @@ class DAFDeathmatch
 		string leader = m_Settings.commandCharacter;
 		DAFDMChat.MessagePlayer(source, "Available commands:");
 		DAFDMChat.MessagePlayer(source, leader + "help, " + leader + "players, " + leader + "timeleft");
-		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "inspect, " + leader + "autorespawn, " + leader + "respawn");
+		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "teams, " + leader + "inspect, " + leader + "autorespawn, " + leader + "respawn");
 		DAFDMChat.MessagePlayer(source, leader + "version, " + leader + "endround, " + leader + "forceround <type>");
-		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "reloadconfig (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "forcetdm <type> [arena], " + leader + "reloadconfig (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "shuffleteams (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "spawndummy, " + leader + "cleardummies, " + leader + "testdrop [weapon] [bonus] (admins)");
 	}
 
@@ -374,7 +441,30 @@ class DAFDeathmatch
 		if (m_CurrentArena)
 			arenaName = m_CurrentArena.GetName();
 
-		DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+		if (IsTeamRound())
+			DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Mode: TDM | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+		else
+			DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Mode: FFA | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+	}
+
+	void SendTeams(PlayerBase source)
+	{
+		if (!IsTeamRound())
+		{
+			DAFDMChat.MessagePlayer(source, "Teams inactive: current round is FFA");
+			return;
+		}
+
+		string sourceTeam = GetTeamForIdentity(source.GetIdentity());
+		DAFDMChat.MessagePlayer(source, "Your team: " + sourceTeam);
+		foreach (string team: m_Settings.teamNames)
+		{
+			if (team == "")
+				continue;
+
+			team.ToLower();
+			DAFDMChat.MessagePlayer(source, string.Format("Team %1: players=%2 score=%3", team, CountAssignedTeam(team), m_Scoreboard.GetTeamScore(team)));
+		}
 	}
 
 	void SendInspect(PlayerBase source)
@@ -399,8 +489,17 @@ class DAFDeathmatch
 				handsType = inHands.GetType();
 		}
 
-		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 arena=%2 pool=%3 loadout=%4 hands=%5", GetRoundDisplayName(), arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
+		string mode = "ffa";
+		string team = "";
+		if (IsTeamRound())
+		{
+			mode = "tdm";
+			team = GetTeamForIdentity(source.GetIdentity());
+		}
+
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 mode=%2 team=%3 arena=%4 pool=%5 loadout=%6 hands=%7", GetRoundDisplayName(), mode, team, arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: dummies=%1 drops=%2 corpses=%3 dropTtl=%4s corpseTtl=%5s", GetActiveTestDummyCount(), GetActiveDeathDropCount(), GetPendingCorpseCleanupCount(), m_Settings.deathDropCleanupSeconds, m_Settings.corpseCleanupSeconds));
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: spawnSafety=%1 minPlayer=%2m minEnemy=%3m view=%4m angle=%5deg", m_Settings.enableSpawnSafety, m_Settings.spawnSafetyMinPlayerDistance, m_Settings.spawnSafetyMinEnemyDistance, m_Settings.spawnSafetyEnemyViewDistance, m_Settings.spawnSafetyEnemyViewAngleDegrees));
 	}
 
 	void ForceRound(PlayerBase source, string roundTypeName)
@@ -442,6 +541,19 @@ class DAFDeathmatch
 
 	void ForceNext(PlayerBase source, string args)
 	{
+		ForceNextWithMode(source, args, "");
+	}
+
+	void ForceTeamDeathmatch(PlayerBase source, string args)
+	{
+		if (args == "")
+			args = "normal";
+
+		ForceNextWithMode(source, args, "tdm");
+	}
+
+	void ForceNextWithMode(PlayerBase source, string args, string gameMode)
+	{
 		int space = args.IndexOf(" ");
 		string roundTypeName = args;
 		string arenaName = "";
@@ -472,15 +584,43 @@ class DAFDeathmatch
 		}
 
 		m_ForcedRoundTypeName = roundType.name;
+		m_ForcedGameMode = gameMode;
+
+		string modeText = "";
+		if (gameMode != "")
+			modeText = " (" + gameMode + ")";
+
 		if (m_ForcedArenaName != "")
-			DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType) + " in " + m_ForcedArenaName);
+			DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType) + modeText + " in " + m_ForcedArenaName);
 		else
-			DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType));
+			DAFDMChat.Announce("Admin forced next round: " + GetRoundTypeDisplayName(roundType) + modeText);
 
 		if (m_RoundActive)
 			EndRound();
 		else
 			StartRound();
+	}
+
+	void ShuffleTeams(PlayerBase source)
+	{
+		if (!IsTeamRound())
+		{
+			DAFDMChat.MessagePlayer(source, "Cannot shuffle teams during FFA");
+			return;
+		}
+
+		m_TeamByPlayerId.Clear();
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+		foreach (Man man: players)
+		{
+			PlayerBase player = PlayerBase.Cast(man);
+			if (player && player.GetIdentity() && player.IsAlive() && !IsTestDummy(player))
+				AssignTeam(player.GetIdentity());
+		}
+
+		DAFDMChat.Announce("Admin shuffled teams");
+		RespawnAllPlayers();
 	}
 
 	bool ShouldAutoRespawn(PlayerIdentity identity)
@@ -535,7 +675,8 @@ class DAFDeathmatch
 		if (!player || !m_CurrentArena)
 			return;
 
-		vector position = m_CurrentArena.GetRandomPlayerSpawn();
+		AssignTeam(player.GetIdentity());
+		vector position = PickSafeSpawn(player.GetIdentity(), player);
 		player.SetPosition(position);
 		m_CurrentArena.FaceCenter(player);
 		EquipPlayer(player);
@@ -546,7 +687,8 @@ class DAFDeathmatch
 		if (!identity || !m_CurrentArena)
 			return;
 
-		vector position = m_CurrentArena.GetRandomPlayerSpawn();
+		AssignTeam(identity);
+		vector position = PickSafeSpawn(identity, oldPlayer);
 		PlayerBase player = PlayerBase.Cast(GetGame().CreatePlayer(identity, "SurvivorM_Mirek", position, 0, "NONE"));
 		if (!player)
 		{
@@ -564,10 +706,16 @@ class DAFDeathmatch
 
 	vector GetRandomPlayerSpawnPosition()
 	{
+		return GetPlayerSpawnPosition(null);
+	}
+
+	vector GetPlayerSpawnPosition(PlayerIdentity identity)
+	{
 		EnsureRoundReady();
+		AssignTeam(identity);
 
 		if (m_CurrentArena)
-			return m_CurrentArena.GetRandomPlayerSpawn();
+			return PickSafeSpawn(identity, null);
 
 		return "0 0 0";
 	}
@@ -583,6 +731,232 @@ class DAFDeathmatch
 			return;
 
 		StartRound();
+	}
+
+	vector PickSafeSpawn(PlayerIdentity identity, PlayerBase currentPlayer)
+	{
+		if (!m_CurrentArena)
+			return "0 0 0";
+
+		if (!m_Settings.enableSpawnSafety)
+			return m_CurrentArena.GetRandomPlayerSpawn();
+
+		array<vector> spawns = m_CurrentArena.GetPlayerSpawns();
+		if (!spawns || spawns.Count() == 0)
+			return m_CurrentArena.GetRandomPlayerSpawn();
+
+		vector bestSpawn = DAFDMArena.SnapToGround(spawns.GetRandomElement());
+		float bestScore = -1000000;
+		bool foundSafe = false;
+
+		foreach (vector rawSpawn: spawns)
+		{
+			vector spawn = DAFDMArena.SnapToGround(rawSpawn);
+			bool rejected;
+			float score = ScoreSpawn(spawn, identity, currentPlayer, rejected);
+			if (!rejected && (!foundSafe || score > bestScore))
+			{
+				bestSpawn = spawn;
+				bestScore = score;
+				foundSafe = true;
+			}
+			else if (!foundSafe && score > bestScore)
+			{
+				bestSpawn = spawn;
+				bestScore = score;
+			}
+		}
+
+		return bestSpawn;
+	}
+
+	float ScoreSpawn(vector spawn, PlayerIdentity identity, PlayerBase currentPlayer, out bool rejected)
+	{
+		rejected = false;
+		float score = 0;
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		foreach (Man man: players)
+		{
+			PlayerBase other = PlayerBase.Cast(man);
+			if (!other || other == currentPlayer || IsTestDummy(other) || !other.IsAlive())
+				continue;
+
+			if (IsSameIdentity(identity, other.GetIdentity()))
+				continue;
+
+			float distance = vector.Distance(spawn, other.GetPosition());
+			if (m_Settings.spawnSafetyMinPlayerDistance > 0 && distance < m_Settings.spawnSafetyMinPlayerDistance)
+				rejected = true;
+
+			if (!IsEnemyForSpawn(identity, other))
+			{
+				score += Math.Min(distance, m_Settings.spawnSafetyEnemyViewDistance) * 0.2;
+				continue;
+			}
+
+			score += Math.Min(distance, m_Settings.spawnSafetyEnemyViewDistance);
+			if (m_Settings.spawnSafetyMinEnemyDistance > 0 && distance < m_Settings.spawnSafetyMinEnemyDistance)
+			{
+				score -= 10000;
+				rejected = true;
+			}
+
+			if (IsLookingAtSpawn(other, spawn, distance))
+			{
+				score -= 5000;
+				rejected = true;
+			}
+		}
+
+		return score + Math.RandomFloat(0, 1);
+	}
+
+	bool IsLookingAtSpawn(PlayerBase enemy, vector spawn, float distance)
+	{
+		if (!enemy || m_Settings.spawnSafetyEnemyViewDistance <= 0 || distance > m_Settings.spawnSafetyEnemyViewDistance)
+			return false;
+
+		if (distance < 0.1)
+			return true;
+
+		vector enemyDirection = enemy.GetDirection();
+		enemyDirection[1] = 0;
+		enemyDirection = enemyDirection.Normalized();
+
+		vector toSpawn = vector.Direction(enemy.GetPosition(), spawn);
+		toSpawn[1] = 0;
+		toSpawn = toSpawn.Normalized();
+
+		float threshold = Math.Cos(m_Settings.spawnSafetyEnemyViewAngleDegrees * Math.DEG2RAD);
+		return vector.Dot(enemyDirection, toSpawn) >= threshold;
+	}
+
+	bool IsSameIdentity(PlayerIdentity left, PlayerIdentity right)
+	{
+		if (!left || !right)
+			return false;
+
+		return left.GetId() == right.GetId();
+	}
+
+	bool IsEnemyForSpawn(PlayerIdentity identity, PlayerBase other)
+	{
+		if (!IsTeamRound())
+			return true;
+
+		string ownTeam = GetTeamForIdentity(identity);
+		string otherTeam = GetTeamForIdentity(other.GetIdentity());
+		if (ownTeam == "" || otherTeam == "")
+			return true;
+
+		return ownTeam != otherTeam;
+	}
+
+	bool IsTeamRound()
+	{
+		string mode = m_CurrentGameMode;
+		mode.ToLower();
+		return mode == "tdm";
+	}
+
+	string AssignTeam(PlayerIdentity identity)
+	{
+		if (!identity || !IsTeamRound())
+			return "";
+
+		string playerId = identity.GetId();
+		string existingTeam;
+		if (m_TeamByPlayerId.Find(playerId, existingTeam))
+			return existingTeam;
+
+		string team = FindPreassignedTeam(playerId);
+		if (team == "")
+			team = PickBalancedTeam();
+
+		m_TeamByPlayerId.Set(playerId, team);
+		PrintFormat("DAFDeathmatch: assigned team player=%1 team=%2", playerId, team);
+		return team;
+	}
+
+	string GetTeamForIdentity(PlayerIdentity identity)
+	{
+		if (!identity)
+			return "";
+
+		string team;
+		if (m_TeamByPlayerId.Find(identity.GetId(), team))
+			return team;
+
+		return AssignTeam(identity);
+	}
+
+	string FindPreassignedTeam(string playerId)
+	{
+		if (playerId == "")
+			return "";
+
+		foreach (DAFDMTeamAssignmentConfig assignment: m_Settings.preassignedTeams)
+		{
+			if (!assignment || assignment.playerId != playerId)
+				continue;
+
+			string team = assignment.team;
+			team.ToLower();
+			if (IsValidTeam(team))
+				return team;
+		}
+
+		return "";
+	}
+
+	string PickBalancedTeam()
+	{
+		if (!m_Settings.teamNames || m_Settings.teamNames.Count() == 0)
+			return "red";
+
+		string bestTeam = m_Settings.teamNames.GetRandomElement();
+		int bestCount = 1000000;
+		foreach (string team: m_Settings.teamNames)
+		{
+			if (team == "")
+				continue;
+
+			team.ToLower();
+			int count = CountAssignedTeam(team);
+			if (count < bestCount || (count == bestCount && Math.RandomInt(0, 2) == 0))
+			{
+				bestTeam = team;
+				bestCount = count;
+			}
+		}
+
+		return bestTeam;
+	}
+
+	int CountAssignedTeam(string team)
+	{
+		int count = 0;
+		for (int i = 0; i < m_TeamByPlayerId.Count(); i++)
+		{
+			if (m_TeamByPlayerId.GetElement(i) == team)
+				count++;
+		}
+
+		return count;
+	}
+
+	bool IsValidTeam(string team)
+	{
+		foreach (string configuredTeam: m_Settings.teamNames)
+		{
+			configuredTeam.ToLower();
+			if (configuredTeam == team)
+				return true;
+		}
+
+		return false;
 	}
 
 	void SpawnTestDummy(PlayerBase source)
@@ -710,6 +1084,7 @@ class DAFDeathmatch
 		}
 
 		CreateOutfit(inventory, loadout);
+		ApplyTeamOutfit(player);
 		EntityAI primary = CreateLoadoutWeapon(player, inventory, loadout.primary, true);
 		if (!primary)
 			CreateEmergencyPrimary(player, inventory);
@@ -725,6 +1100,73 @@ class DAFDeathmatch
 			if (item && itemConfig.quickbarSlot >= 0)
 				player.SetQuickBarEntityShortcut(item, itemConfig.quickbarSlot, true);
 		}
+	}
+
+	void ApplyTeamOutfit(PlayerBase player)
+	{
+		if (!player || !IsTeamRound() || !m_Settings.enforceTDMTeamOutfits)
+			return;
+
+		string team = GetTeamForIdentity(player.GetIdentity());
+		string jacket;
+		string pants;
+		string shoes;
+		string mask;
+		string armband;
+		GetTeamOutfitTypes(team, jacket, pants, shoes, mask, armband);
+		if (jacket == "" || pants == "" || shoes == "" || mask == "" || armband == "")
+			return;
+
+		ReplacePlayerAttachment(player, "Body", jacket);
+		ReplacePlayerAttachment(player, "Legs", pants);
+		ReplacePlayerAttachment(player, "Feet", shoes);
+		ReplacePlayerAttachment(player, "Mask", mask);
+		ReplacePlayerAttachment(player, "Armband", armband);
+	}
+
+	void GetTeamOutfitTypes(string team, out string jacket, out string pants, out string shoes, out string mask, out string armband)
+	{
+		jacket = "";
+		pants = "";
+		shoes = "";
+		mask = "";
+		armband = "";
+
+		team.ToLower();
+		if (team == "red")
+		{
+			jacket = m_Settings.tdmRedJacket;
+			pants = m_Settings.tdmRedPants;
+			shoes = m_Settings.tdmRedShoes;
+			mask = m_Settings.tdmRedMask;
+			armband = m_Settings.tdmRedArmband;
+			return;
+		}
+
+		if (team == "blue")
+		{
+			jacket = m_Settings.tdmBlueJacket;
+			pants = m_Settings.tdmBluePants;
+			shoes = m_Settings.tdmBlueShoes;
+			mask = m_Settings.tdmBlueMask;
+			armband = m_Settings.tdmBlueArmband;
+		}
+	}
+
+	void ReplacePlayerAttachment(PlayerBase player, string slotName, string itemType)
+	{
+		if (!player || itemType == "")
+			return;
+
+		EntityAI existing = player.FindAttachmentBySlotName(slotName);
+		if (existing)
+			GetGame().ObjectDelete(existing);
+
+		EntityAI created = player.GetInventory().CreateAttachment(itemType);
+		if (!created)
+			PrintFormat("DAFDeathmatch: failed to create TDM team outfit item slot=%1 type=%2", slotName, itemType);
+		else if (slotName == "Mask")
+			player.AdjustBandana(created, slotName);
 	}
 
 	DAFDMLoadoutEntryConfig PickLoadoutForPlayer(PlayerBase player)
@@ -895,6 +1337,27 @@ class DAFDeathmatch
 			m_LastRoundTypeName = picked.name;
 
 		return picked;
+	}
+
+	string PickGameMode(DAFDMRoundTypeConfig roundType)
+	{
+		if (m_ForcedGameMode != "")
+		{
+			string forcedMode = m_ForcedGameMode;
+			forcedMode.ToLower();
+			m_ForcedGameMode = "";
+			return forcedMode;
+		}
+
+		if (!roundType || roundType.gameMode == "")
+			return "ffa";
+
+		string mode = roundType.gameMode;
+		mode.ToLower();
+		if (mode == "tdm")
+			return "tdm";
+
+		return "ffa";
 	}
 
 	DAFDMArena PickForcedArena()

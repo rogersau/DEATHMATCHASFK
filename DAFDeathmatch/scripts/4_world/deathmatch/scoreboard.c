@@ -15,10 +15,12 @@ class DAFDMScore
 class DAFDMScoreboard
 {
 	private ref array<ref DAFDMScore> m_Scores = new array<ref DAFDMScore>();
+	private ref map<string, int> m_TeamScores = new map<string, int>();
 
 	void Reset()
 	{
 		m_Scores.Clear();
+		m_TeamScores.Clear();
 		DAFRoundStats.Reset("DAFDeathmatch.Scoreboard.Reset");
 	}
 
@@ -50,6 +52,22 @@ class DAFDMScoreboard
 			DAFDMScore victimScore = Ensure(victim);
 			victimScore.deaths++;
 		}
+	}
+
+	void AddDeath(PlayerIdentity victim)
+	{
+		if (victim)
+			Ensure(victim).deaths++;
+	}
+
+	void AddTeamKill(string team)
+	{
+		if (team == "")
+			return;
+
+		int score;
+		m_TeamScores.Find(team, score);
+		m_TeamScores.Set(team, score + 1);
 	}
 
 	DAFDMScore Ensure(PlayerIdentity identity)
@@ -87,6 +105,16 @@ class DAFDMScoreboard
 			return 0;
 
 		return score.deaths;
+	}
+
+	int GetTeamScore(string team)
+	{
+		if (team == "")
+			return 0;
+
+		int score;
+		m_TeamScores.Find(team, score);
+		return score;
 	}
 
 	private DAFDMScore Find(string id)

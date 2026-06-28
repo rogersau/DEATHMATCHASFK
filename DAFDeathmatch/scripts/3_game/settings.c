@@ -9,10 +9,17 @@ class DAFDMRoundTypeConfig
 {
 	string name;
 	string displayName;
+	string gameMode = "ffa";
 	int weight = 1;
 	int roundMinutes = 0;
 	string loadoutPool;
 	ref TStringArray arenaNames = new TStringArray();
+}
+
+class DAFDMTeamAssignmentConfig
+{
+	string playerId;
+	string team;
 }
 
 class DAFDMSettings
@@ -32,9 +39,28 @@ class DAFDMSettings
 	int deathDropCleanupSeconds = 60;
 	bool enableAdminTestCommands = false;
 	bool enablePlayerRespawnCommand = false;
+	bool enableSpawnSafety = true;
+	float spawnSafetyMinPlayerDistance = 12;
+	float spawnSafetyMinEnemyDistance = 35;
+	float spawnSafetyEnemyViewDistance = 120;
+	float spawnSafetyEnemyViewAngleDegrees = 70;
+	string teamAssignmentMode = "balancedRandom";
+	bool enforceTDMTeamOutfits = true;
+	string tdmRedJacket = "TrackSuitJacket_Red";
+	string tdmRedPants = "TrackSuitPants_Red";
+	string tdmRedShoes = "JoggingShoes_Red";
+	string tdmRedMask = "Bandana_RedPattern";
+	string tdmRedArmband = "Armband_Red";
+	string tdmBlueJacket = "TrackSuitJacket_Blue";
+	string tdmBluePants = "TrackSuitPants_Blue";
+	string tdmBlueShoes = "JoggingShoes_Blue";
+	string tdmBlueMask = "Bandana_Blue";
+	string tdmBlueArmband = "Armband_Blue";
 	ref TStringArray arenaRotation = new TStringArray();
 	ref TStringArray excludedArenas = new TStringArray();
 	ref TStringArray admins = new TStringArray();
+	ref TStringArray teamNames = new TStringArray();
+	ref array<ref DAFDMTeamAssignmentConfig> preassignedTeams = new array<ref DAFDMTeamAssignmentConfig>();
 	ref array<ref DAFDMRoundTypeConfig> roundTypes = new array<ref DAFDMRoundTypeConfig>();
 	ref array<ref DAFDMWeaponConfig> primaryWeapons = new array<ref DAFDMWeaponConfig>();
 	ref array<ref DAFDMWeaponConfig> secondaryWeapons = new array<ref DAFDMWeaponConfig>();
@@ -79,6 +105,18 @@ class DAFDMSettings
 		if (deathDropCleanupSeconds < 1)
 			deathDropCleanupSeconds = 60;
 
+		if (spawnSafetyMinPlayerDistance < 0)
+			spawnSafetyMinPlayerDistance = 0;
+
+		if (spawnSafetyMinEnemyDistance < 0)
+			spawnSafetyMinEnemyDistance = 0;
+
+		if (spawnSafetyEnemyViewDistance < 0)
+			spawnSafetyEnemyViewDistance = 0;
+
+		if (spawnSafetyEnemyViewAngleDegrees < 1)
+			spawnSafetyEnemyViewAngleDegrees = 70;
+
 		if (arenaWallSegments < 8)
 			arenaWallSegments = 8;
 
@@ -88,6 +126,9 @@ class DAFDMSettings
 
 		if (roundTypes.Count() == 0)
 			FillDefaultRoundTypes();
+
+		if (teamNames.Count() < 2)
+			FillDefaultTeams();
 
 		if (primaryWeapons.Count() == 0 || secondaryWeapons.Count() == 0)
 			FillDefaultWeapons();
@@ -107,6 +148,7 @@ class DAFDMSettings
 	{
 		arenaRotation.Insert("default");
 		FillDefaultRoundTypes();
+		FillDefaultTeams();
 		FillDefaultWeapons();
 	}
 
@@ -127,6 +169,13 @@ class DAFDMSettings
 		roundType.weight = weight;
 		roundType.loadoutPool = loadoutPool;
 		roundTypes.Insert(roundType);
+	}
+
+	private void FillDefaultTeams()
+	{
+		teamNames.Clear();
+		teamNames.Insert("red");
+		teamNames.Insert("blue");
 	}
 
 	private void FillDefaultWeapons()

@@ -22,7 +22,7 @@ modded class MissionServer
 	override PlayerBase CreateCharacter(PlayerIdentity identity, vector pos, ParamsReadContext ctx, string characterName)
 	{
 		if (g_DAFDeathmatch)
-			pos = g_DAFDeathmatch.GetRandomPlayerSpawnPosition();
+			pos = g_DAFDeathmatch.GetPlayerSpawnPosition(identity);
 
 		m_player = PlayerBase.Cast(GetGame().CreateObject(characterName, pos));
 		GetGame().SelectPlayer(identity, m_player);

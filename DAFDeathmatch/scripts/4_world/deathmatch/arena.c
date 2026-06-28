@@ -70,6 +70,11 @@ class DAFDMArena
 		return SnapToGround(m_PlayerSpawns.GetRandomElement());
 	}
 
+	array<vector> GetPlayerSpawns()
+	{
+		return m_PlayerSpawns;
+	}
+
 	void FaceCenter(PlayerBase player)
 	{
 		if (!player)
