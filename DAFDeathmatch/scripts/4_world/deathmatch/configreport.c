@@ -9,6 +9,7 @@ class DAFDMConfigReport
 
 		PrintFormat("DAFDeathmatch: config report (%1): roundTypes=%2 weights=%3 arenas=%4 enabledArenas=%5 excludedArenas=%6 loadoutPools=%7 warnings=%8", source, CountRoundTypes(settings), BuildRoundWeightSummary(settings), CountArenas(arenas), CountEnabledArenas(settings, arenas), CountExcludedArenas(settings), CountLoadoutPools(loadouts), warningCount);
 		PrintFormat("DAFDeathmatch: config flags (%1): autoRespawn=%2 playerRespawnCommand=%3 adminTestCommands=%4 spawnSafety=%5 tdmOutfitEnforcement=%6 lowPopWarmup=%7 weaponJamDisabled=1", source, settings.autoRespawn, settings.enablePlayerRespawnCommand, settings.enableAdminTestCommands, settings.enableSpawnSafety, settings.enforceTDMTeamOutfits, settings.enableLowPopWarmup);
+		PrintFormat("DAFDeathmatch: discord flags (%1): killfeed=%2 url=%3 serverEvents=%4 url=%5 serverName=%6 suppressEmbeds=%7", source, settings.enableDiscordKillfeed, FormatDiscordUrlState(settings.enableDiscordKillfeed, settings.discordKillfeedWebhookUrl), settings.enableDiscordServerEvents, FormatDiscordUrlState(settings.enableDiscordServerEvents, settings.discordServerEventsWebhookUrl), settings.discordServerName, settings.discordSuppressEmbeds);
 	}
 
 	static int Validate(DAFDMSettings settings, DAFDMArenaRegistry arenas, DAFDMLoadoutRegistry loadouts)
@@ -91,8 +92,56 @@ class DAFDMConfigReport
 			warnings += ValidateTDMSettings(settings);
 
 		warnings += ValidateWarmupSettings(settings);
+		warnings += ValidateDiscordSettings(settings);
 
 		return warnings;
+	}
+
+	private static int ValidateDiscordSettings(DAFDMSettings settings)
+	{
+		if (!settings)
+			return 0;
+
+		int warnings = 0;
+		warnings += ValidateDiscordEndpoint(settings.enableDiscordKillfeed, settings.discordKillfeedWebhookUrl, "Discord killfeed");
+		warnings += ValidateDiscordEndpoint(settings.enableDiscordServerEvents, settings.discordServerEventsWebhookUrl, "Discord server-events");
+		return warnings;
+	}
+
+	private static int ValidateDiscordEndpoint(bool enabled, string url, string label)
+	{
+		if (!enabled)
+			return 0;
+
+		if (url == "")
+			return Warn(string.Format("%1 endpoint is enabled but the webhook URL is empty", label));
+
+		if (url.IndexOf("discord.com") < 0 && url.IndexOf("discordapp.com") < 0)
+			return Warn(string.Format("%1 endpoint is enabled but the webhook URL does not look like a Discord webhook", label));
+
+		return 0;
+	}
+
+	private static string FormatDiscordUrlState(bool enabled, string url)
+	{
+		if (url == "")
+		{
+			if (enabled)
+				return "MISSING";
+
+			return "unset";
+		}
+
+		return MaskWebhookUrl(url);
+	}
+
+	private static string MaskWebhookUrl(string url)
+	{
+		int length = url.Length();
+		if (length <= 41)
+			return "<hidden>";
+
+		return url.Substring(0, 35) + "..." + url.Substring(length - 6, 6);
 	}
 
 	private static int ValidateWarmupSettings(DAFDMSettings settings)

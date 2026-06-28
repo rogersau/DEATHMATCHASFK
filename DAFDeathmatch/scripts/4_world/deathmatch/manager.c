@@ -24,6 +24,7 @@ class DAFDeathmatch
 	private bool m_WarmupTickStarted;
 	private int m_WarmupActivationDueTime;
 	private ref array<ZombieBase> m_WarmupInfected;
+	private ref DAFDMDiscord m_Discord;
 
 	void DAFDeathmatch()
 	{
@@ -54,6 +55,7 @@ class DAFDeathmatch
 		m_WarmupTickStarted = false;
 		m_WarmupActivationDueTime = 0;
 		m_WarmupInfected = new array<ZombieBase>();
+		m_Discord = new DAFDMDiscord();
 	}
 
 	void Start()
@@ -61,6 +63,7 @@ class DAFDeathmatch
 		EnsureRoundReady();
 		StartWarmupTick();
 		EvaluateWarmupState("start");
+		m_Discord.PostServerReady(m_Settings);
 	}
 
 	void StartRound()
@@ -81,6 +84,7 @@ class DAFDeathmatch
 		m_RoundActive = true;
 		m_Scoreboard.Reset();
 		m_TeamByPlayerId.Clear();
+		m_Discord.ResetRoundStats();
 		PrintFormat("DAFDeathmatch: %1 round started in arena %2", GetRoundDisplayName(), m_CurrentArena.GetName());
 
 		SpawnArenaWalls();
@@ -89,6 +93,7 @@ class DAFDeathmatch
 		m_RoundTimer.Stop();
 		m_RoundTimer.Run(roundMinutes * 60, this, "EndRound");
 		DAFDMChat.Announce("Round started: " + GetRoundDisplayName());
+		m_Discord.PostRoundStart(m_Settings, GetRoundDisplayName(), m_CurrentArena.GetName(), m_CurrentGameMode, roundMinutes);
 
 		RespawnAllPlayers();
 		EvaluateWarmupState("round started");
@@ -101,6 +106,7 @@ class DAFDeathmatch
 
 		m_RoundActive = false;
 		DAFDMRoundTimer.Stop();
+		m_Discord.PostRoundEnd(m_Settings, m_Scoreboard, m_Settings, GetRoundDisplayName(), m_CurrentGameMode, m_Settings.teamNames);
 		CleanupRoundObjects();
 		Print("DAFDeathmatch: round ended");
 
@@ -137,7 +143,7 @@ class DAFDeathmatch
 		if (!victim)
 			return;
 
-		HandleKillScore(victim, killer);
+		HandleKillScore(victim, killer, weapon, headshot);
 
 		UntrackTestDummy(victim);
 		EntityAI deathDrop = HandleDeathDrop(victim);
@@ -150,7 +156,7 @@ class DAFDeathmatch
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnIdentity, m_Settings.respawnSeconds * 1000, false, identity, victim);
 	}
 
-	void HandleKillScore(PlayerBase victim, PlayerBase killer)
+	void HandleKillScore(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
 	{
 		PlayerIdentity victimIdentity = victim.GetIdentity();
 		PlayerIdentity killerIdentity;
@@ -176,10 +182,24 @@ class DAFDeathmatch
 
 			m_Scoreboard.AddKill(killerIdentity, victimIdentity);
 			m_Scoreboard.AddTeamKill(killerTeam);
+			OnScoredPvpKill(victim, killer, weapon, headshot);
 			return;
 		}
 
 		m_Scoreboard.AddKill(killerIdentity, victimIdentity);
+		OnScoredPvpKill(victim, killer, weapon, headshot);
+	}
+
+	void OnScoredPvpKill(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
+	{
+		if (!victim || !killer)
+			return;
+
+		if (IsTestDummy(victim) || IsTestDummy(killer))
+			return;
+
+		m_Discord.RegisterPvpKill(m_Settings, victim, killer, weapon, headshot);
+		m_Discord.PostKillfeedKill(m_Settings, victim, killer, weapon, headshot);
 	}
 
 	void OnPlayerPickedUpItem(PlayerBase player, EntityAI item)
@@ -391,6 +411,13 @@ class DAFDeathmatch
 			EvaluateWarmupState("reloadconfig");
 			DAFDMChat.MessagePlayer(source, "Config reloaded for future rounds");
 		}
+		else if (command == "discordtest")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			DiscordTest(source, args);
+		}
 		else
 		{
 			DAFDMChat.MessagePlayer(source, "Invalid command: " + command);
@@ -406,6 +433,7 @@ class DAFDeathmatch
 		DAFDMChat.MessagePlayer(source, leader + "version, " + leader + "endround, " + leader + "forceround <type>");
 		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "forcetdm <type> [arena], " + leader + "spawnreport, " + leader + "reloadconfig (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "shuffleteams (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "discordtest killfeed|events (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "spawndummy, " + leader + "cleardummies, " + leader + "testdrop [weapon] [bonus] (admins)");
 	}
 
@@ -458,6 +486,56 @@ class DAFDeathmatch
 			DAFDMChat.MessagePlayer(source, "Auto-respawn enabled");
 		else
 			DAFDMChat.MessagePlayer(source, "Auto-respawn disabled");
+	}
+
+	void DiscordTest(PlayerBase source, string args)
+	{
+		string endpoint = args;
+		endpoint.ToLower();
+		if (endpoint == "")
+		{
+			DAFDMChat.MessagePlayer(source, "Usage: @discordtest killfeed|events");
+			return;
+		}
+
+		bool killfeed = endpoint == "killfeed";
+		bool events = endpoint == "events";
+		if (!killfeed && !events)
+		{
+			DAFDMChat.MessagePlayer(source, "Unknown endpoint: " + args);
+			return;
+		}
+
+		bool enabled;
+		if (killfeed)
+			enabled = m_Settings.enableDiscordKillfeed;
+		else
+			enabled = m_Settings.enableDiscordServerEvents;
+		if (!enabled)
+		{
+			DAFDMChat.MessagePlayer(source, "Discord " + endpoint + " endpoint is disabled");
+			return;
+		}
+
+		if (killfeed)
+		{
+			if (!m_Discord.WebhookReady(m_Settings.discordKillfeedWebhookUrl))
+			{
+				DAFDMChat.MessagePlayer(source, "Discord killfeed endpoint is enabled but the webhook URL is missing or invalid");
+				return;
+			}
+		}
+		else
+		{
+			if (!m_Discord.WebhookReady(m_Settings.discordServerEventsWebhookUrl))
+			{
+				DAFDMChat.MessagePlayer(source, "Discord events endpoint is enabled but the webhook URL is missing or invalid");
+				return;
+			}
+		}
+
+		m_Discord.TestEndpoint(m_Settings, killfeed);
+		DAFDMChat.MessagePlayer(source, "Discord " + endpoint + " test posted");
 	}
 
 	void SendStatus(PlayerBase source)

@@ -39,6 +39,12 @@ class DAFDMSettings
 	int deathDropCleanupSeconds = 60;
 	bool enableAdminTestCommands = false;
 	bool enablePlayerRespawnCommand = false;
+	bool enableDiscordKillfeed = false;
+	string discordKillfeedWebhookUrl = "";
+	bool enableDiscordServerEvents = false;
+	string discordServerEventsWebhookUrl = "";
+	string discordServerName = "";
+	bool discordSuppressEmbeds = false;
 	bool enableSpawnSafety = true;
 	float spawnSafetyMinPlayerDistance = 12;
 	float spawnSafetyMinEnemyDistance = 35;

@@ -51,6 +51,8 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 @cleardummies
 @testdrop
 @testdrop M4A1 Mag_STANAG_30Rnd
+@discordtest killfeed
+@discordtest events
 @respawn
 @autorespawn
 @timeleft
@@ -61,6 +63,25 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 `@spawnreport` explains the current arena's spawn-safety pick for you: chosen spawn index, whether the pick is a fallback, nearby player/enemy counts, view-cone threats, nearest player/enemy distance, and active thresholds.
 
 `@spawndummy`, `@cleardummies`, and `@testdrop` require admin access and `enableAdminTestCommands = true` in `settings.json`. `@respawn` is admin-only unless `enablePlayerRespawnCommand = true`.
+
+## Discord
+
+Standalone `DAFDeathmatch` has two independent Discord webhook endpoints. Both default to disabled, and missing URLs never break server startup.
+
+- `enableDiscordKillfeed` / `discordKillfeedWebhookUrl`: noisy PvP kill messages only.
+- `enableDiscordServerEvents` / `discordServerEventsWebhookUrl`: lower-volume server ready, round start, and round-end summary messages.
+- `discordServerName`: name shown on Discord messages, defaults to `DAF Deathmatch`.
+- `discordSuppressEmbeds`: optional, sets the Discord suppress-embeds flag on posted messages.
+
+To test locally:
+
+1. Create two Discord channels and a webhook per channel (channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL).
+2. Open `<profile>\DAFDeathmatch\settings.json` and paste each webhook URL into the matching field, then set both `enableDiscordKillfeed` and `enableDiscordServerEvents` to `true`.
+3. Run `@reloadconfig` (admin) so the next round picks up the change, or restart the server.
+
+Webhook URLs are server-side only. The config report masks them (`https://discord.com/api/webhooks/...abc123`); the full URL is never printed to logs. Do not commit a real webhook URL into this repo.
+
+`@discordtest killfeed` and `@discordtest events` are admin-only and test each endpoint independently. When the endpoint is disabled or the URL is missing/invalid, the command reports that cleanly without posting.
 
 TDM is enabled per round type by setting that round type's `gameMode` to `tdm`; omitted or `ffa` keeps the existing free-for-all behavior. `teamNames` defaults to `red` and `blue`, and `preassignedTeams` can pin event players by player ID while everyone else fills the smaller team.
 
@@ -99,3 +120,12 @@ Low-pop warmup is enabled by default. With one real player connected, warmup act
 - `@testdrop [weapon] [bonus]` creates a tracked death-drop weapon near you without requiring a kill.
 - Picking up a tracked test/death drop unregisters it and grants the configured bonus only when the picker is not the original owner.
 - `@inspect` also shows tracked dummy, death-drop, and pending corpse-cleanup counts.
+
+## Discord Smoke Checklist
+
+- Script log shows a `DAFDeathmatch: discord flags` line on startup; no raw webhook token appears anywhere in the log.
+- With both endpoints disabled (or URLs blank), startup still succeeds and `@discordtest` reports disabled/missing cleanly without posting.
+- With URLs configured and endpoints enabled, `@discordtest killfeed` posts only to the killfeed channel and `@discordtest events` posts only to the events channel.
+- A PvP kill posts only to the killfeed endpoint; warmup infected kills, test dummy kills, death-drop pickups, and respawns do not post.
+- Round start and round end post only to the events endpoint.
+- The round-end summary includes highlights when available: top player, top K/D, furthest shot, top weapon, and TDM team scores for TDM rounds.

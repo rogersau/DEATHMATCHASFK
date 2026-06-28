@@ -127,4 +127,89 @@ class DAFDMScoreboard
 
 		return null;
 	}
+
+	DAFDMScore GetTopPlayerByKills()
+	{
+		DAFDMScore best;
+		foreach (DAFDMScore score: m_Scores)
+		{
+			if (!score)
+				continue;
+
+			if (!best || score.kills > best.kills)
+				best = score;
+		}
+
+		return best;
+	}
+
+	DAFDMScore GetTopPlayerByKD()
+	{
+		DAFDMScore best;
+		foreach (DAFDMScore score: m_Scores)
+		{
+			if (!score)
+				continue;
+
+			if (!best)
+			{
+				best = score;
+				continue;
+			}
+
+			if (HasBetterKD(score, best))
+				best = score;
+		}
+
+		return best;
+	}
+
+	bool HasBetterKD(DAFDMScore candidate, DAFDMScore current)
+	{
+		if (!candidate || !current)
+			return false;
+
+		if (candidate.kills <= 0)
+			return false;
+
+		bool candidateInfinite = candidate.deaths <= 0;
+		bool currentInfinite = current.deaths <= 0;
+
+		if (candidateInfinite && !currentInfinite)
+			return true;
+
+		if (!candidateInfinite && currentInfinite)
+			return false;
+
+		if (candidateInfinite && currentInfinite)
+			return candidate.kills > current.kills;
+
+		return (candidate.kills * current.deaths) > (current.kills * candidate.deaths);
+	}
+
+	array<ref DAFDMScore> GetScoresSnapshot()
+	{
+		array<ref DAFDMScore> snapshot = new array<ref DAFDMScore>();
+		foreach (DAFDMScore score: m_Scores)
+		{
+			if (score)
+				snapshot.Insert(score);
+		}
+
+		return snapshot;
+	}
+
+	bool HasTeamScore(array<string> teamNames)
+	{
+		if (!teamNames)
+			return false;
+
+		foreach (string team: teamNames)
+		{
+			if (team != "" && GetTeamScore(team) > 0)
+				return true;
+		}
+
+		return false;
+	}
 }
