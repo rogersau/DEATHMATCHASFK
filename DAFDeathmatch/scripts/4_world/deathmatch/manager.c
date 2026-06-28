@@ -1085,6 +1085,7 @@ class DAFDeathmatch
 
 		CreateOutfit(inventory, loadout);
 		ApplyTeamOutfit(player);
+		RepairPlayerAttachments(player);
 		EntityAI primary = CreateLoadoutWeapon(player, inventory, loadout.primary, true);
 		if (!primary)
 			CreateEmergencyPrimary(player, inventory);
@@ -1167,6 +1168,34 @@ class DAFDeathmatch
 			PrintFormat("DAFDeathmatch: failed to create TDM team outfit item slot=%1 type=%2", slotName, itemType);
 		else if (slotName == "Mask")
 			player.AdjustBandana(created, slotName);
+	}
+
+	void RepairPlayerAttachments(PlayerBase player)
+	{
+		if (!player)
+			return;
+
+		for (int i = 0; i < player.GetInventory().AttachmentCount(); i++)
+		{
+			EntityAI attachment = player.GetInventory().GetAttachmentFromIndex(i);
+			if (attachment)
+				RepairEntityDamage(attachment);
+		}
+	}
+
+	void RepairEntityDamage(EntityAI item)
+	{
+		if (!item)
+			return;
+
+		item.SetHealth("", "Health", item.GetMaxHealth("", "Health"));
+
+		array<string> zones = new array<string>();
+		item.GetDamageZones(zones);
+		foreach (string zone: zones)
+		{
+			item.SetHealth(zone, "Health", item.GetMaxHealth(zone, "Health"));
+		}
 	}
 
 	DAFDMLoadoutEntryConfig PickLoadoutForPlayer(PlayerBase player)

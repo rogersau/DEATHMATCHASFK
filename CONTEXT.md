@@ -20,6 +20,7 @@ Historically this is the shared client/server addon. It contains client-visible 
 - Carried inventory damage protection
 - Infected damage blocking
 - Optional weapon fire-mode preference logic, disabled by default
+- Weapon jam prevention for the DAF PvP loop
 - Client-side respawn cursor repair RPC handling
 
 `DAFImprovements` must not reference Crimson Zamboni Deathmatch classes. Clients load this addon, and clients do not have the reference Deathmatch mod installed.
@@ -192,3 +193,7 @@ TDM scoring should count enemy kills toward both player K:D and team score. Frie
 Admins can force a one-off TDM round for testing or events without rewriting config. This is an operational override for the next round only; configured round types remain the durable source of normal rotation behavior.
 
 TDM loadouts must preserve readable team identity. After the normal loadout outfit roll, the server enforces configured team clothing for red and blue teams by replacing body, legs, feet, mask, and armband slots with matching tracksuits, sneaker-style shoes, bandana face coverings, and armbands before weapons and inventory items are created.
+
+Worn and carried player items should not degrade during combat in either FFA or TDM. `DAFImprovements` protects damage on living-player-owned items, and standalone spawn/loadout code should repair freshly equipped player attachments so each respawn starts with pristine clothing.
+
+Weapons should not jam during the DAF PvP loop. `DAFImprovements` disables weapon jam state and jam chance at the shared weapon base layer so the guarantee applies to both the standalone `DAFDeathmatch` path and the Crimson Zamboni compatibility stack.

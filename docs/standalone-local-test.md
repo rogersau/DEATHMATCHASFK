@@ -67,7 +67,9 @@ TDM enforces team clothing by default: red team gets red tracksuit jacket/pants,
 - First spawn appears directly in the current arena without a visible wrong-position flash.
 - New spawns avoid close enemies and enemies looking directly at the spawn where the arena has safer alternatives.
 - Weapon spawns in normal, snipers, freshies, and juiced rounds.
+- Weapons do not jam, including after sustained fire or when a weapon would normally be damaged enough to jam.
 - Snipers rounds always provide a primary rifle.
+- FFA and TDM clothing starts pristine and does not degrade from combat damage while worn.
 - Timer appears on first join.
 - Timer appears again after disconnect/reconnect.
 - Death auto-respawns after the configured delay.
