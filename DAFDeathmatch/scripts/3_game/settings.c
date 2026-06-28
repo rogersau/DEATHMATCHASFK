@@ -44,6 +44,16 @@ class DAFDMSettings
 	float spawnSafetyMinEnemyDistance = 35;
 	float spawnSafetyEnemyViewDistance = 120;
 	float spawnSafetyEnemyViewAngleDegrees = 70;
+	bool enableLowPopWarmup = true;
+	int warmupPlayerThreshold = 1;
+	int warmupActivateDelaySeconds = 30;
+	int warmupTickSeconds = 5;
+	int warmupInfectedTargetCount = 8;
+	string warmupInfectedType = "ZmbM_CitizenASkinny_Brown";
+	float warmupInfectedMinSpawnDistance = 20;
+	float warmupInfectedMaxSpawnDistance = 55;
+	float warmupInfectedMovementSpeed = 1.0;
+	bool warmupUnlimitedAmmo = true;
 	string teamAssignmentMode = "balancedRandom";
 	bool enforceTDMTeamOutfits = true;
 	string tdmRedJacket = "TrackSuitJacket_Red";
@@ -116,6 +126,30 @@ class DAFDMSettings
 
 		if (spawnSafetyEnemyViewAngleDegrees < 1)
 			spawnSafetyEnemyViewAngleDegrees = 70;
+
+		if (warmupPlayerThreshold < 1)
+			warmupPlayerThreshold = 1;
+
+		if (warmupActivateDelaySeconds < 0)
+			warmupActivateDelaySeconds = 30;
+
+		if (warmupTickSeconds < 1)
+			warmupTickSeconds = 5;
+
+		if (warmupInfectedTargetCount < 0)
+			warmupInfectedTargetCount = 0;
+
+		if (warmupInfectedType == "")
+			warmupInfectedType = "ZmbM_CitizenASkinny_Brown";
+
+		if (warmupInfectedMinSpawnDistance < 5)
+			warmupInfectedMinSpawnDistance = 5;
+
+		if (warmupInfectedMaxSpawnDistance < warmupInfectedMinSpawnDistance)
+			warmupInfectedMaxSpawnDistance = warmupInfectedMinSpawnDistance + 10;
+
+		if (warmupInfectedMovementSpeed < 0.1)
+			warmupInfectedMovementSpeed = 1.0;
 
 		if (arenaWallSegments < 8)
 			arenaWallSegments = 8;

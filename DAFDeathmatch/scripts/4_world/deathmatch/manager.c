@@ -20,6 +20,10 @@ class DAFDeathmatch
 	private ref array<PlayerBase> m_TestDummies;
 	private ref array<PlayerBase> m_PendingCorpseCleanup;
 	private ref array<ref DAFDMDeathDrop> m_DeathDrops;
+	private bool m_WarmupActive;
+	private bool m_WarmupTickStarted;
+	private int m_WarmupActivationDueTime;
+	private ref array<ZombieBase> m_WarmupInfected;
 
 	void DAFDeathmatch()
 	{
@@ -31,6 +35,7 @@ class DAFDeathmatch
 
 		m_Loadouts = new DAFDMLoadoutRegistry();
 		m_Loadouts.Load();
+		DAFDMConfigReport.PrintReport(m_Settings, m_Arenas, m_Loadouts, "startup");
 
 		m_Scoreboard = new DAFDMScoreboard();
 		m_RoundTimer = new Timer();
@@ -45,11 +50,17 @@ class DAFDeathmatch
 		m_TestDummies = new array<PlayerBase>();
 		m_PendingCorpseCleanup = new array<PlayerBase>();
 		m_DeathDrops = new array<ref DAFDMDeathDrop>();
+		m_WarmupActive = false;
+		m_WarmupTickStarted = false;
+		m_WarmupActivationDueTime = 0;
+		m_WarmupInfected = new array<ZombieBase>();
 	}
 
 	void Start()
 	{
 		EnsureRoundReady();
+		StartWarmupTick();
+		EvaluateWarmupState("start");
 	}
 
 	void StartRound()
@@ -80,6 +91,7 @@ class DAFDeathmatch
 		DAFDMChat.Announce("Round started: " + GetRoundDisplayName());
 
 		RespawnAllPlayers();
+		EvaluateWarmupState("round started");
 	}
 
 	void EndRound()
@@ -104,6 +116,10 @@ class DAFDeathmatch
 
 		if (m_CurrentArena)
 			m_CurrentArena.FaceCenter(player);
+
+		EvaluateWarmupState("player connected");
+		if (player.GetIdentity())
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendWarmupHudTo, 2000, false, player.GetIdentity());
 	}
 
 	void ResetConnectedPlayer(PlayerIdentity identity)
@@ -113,6 +129,7 @@ class DAFDeathmatch
 
 		m_Scoreboard.ResetPlayer(identity);
 		AssignTeam(identity);
+		EvaluateWarmupState("player reset");
 	}
 
 	void OnPlayerKilled(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -274,6 +291,13 @@ class DAFDeathmatch
 		{
 			SendInspect(source);
 		}
+		else if (command == "spawnreport")
+		{
+			if (!RequireAdmin(source))
+				return;
+
+			SendSpawnReport(source);
+		}
 		else if (command == "autorespawn")
 		{
 			ToggleAutoRespawn(source);
@@ -363,6 +387,8 @@ class DAFDeathmatch
 			m_Settings.Load();
 			m_Arenas.Load();
 			m_Loadouts.Load();
+			DAFDMConfigReport.PrintReport(m_Settings, m_Arenas, m_Loadouts, "reload");
+			EvaluateWarmupState("reloadconfig");
 			DAFDMChat.MessagePlayer(source, "Config reloaded for future rounds");
 		}
 		else
@@ -378,7 +404,7 @@ class DAFDeathmatch
 		DAFDMChat.MessagePlayer(source, leader + "help, " + leader + "players, " + leader + "timeleft");
 		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "teams, " + leader + "inspect, " + leader + "autorespawn, " + leader + "respawn");
 		DAFDMChat.MessagePlayer(source, leader + "version, " + leader + "endround, " + leader + "forceround <type>");
-		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "forcetdm <type> [arena], " + leader + "reloadconfig (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "forcetdm <type> [arena], " + leader + "spawnreport, " + leader + "reloadconfig (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "shuffleteams (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "spawndummy, " + leader + "cleardummies, " + leader + "testdrop [weapon] [bonus] (admins)");
 	}
@@ -441,10 +467,14 @@ class DAFDeathmatch
 		if (m_CurrentArena)
 			arenaName = m_CurrentArena.GetName();
 
+		string warmup = "";
+		if (m_WarmupActive)
+			warmup = " | Warmup Mode";
+
 		if (IsTeamRound())
-			DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Mode: TDM | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+			DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Mode: TDM | Arena: %2 | Time: %3 | Players: %4%5", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount(), warmup));
 		else
-			DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Mode: FFA | Arena: %2 | Time: %3 | Players: %4", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount()));
+			DAFDMChat.MessagePlayer(source, string.Format("Round: %1 | Mode: FFA | Arena: %2 | Time: %3 | Players: %4%5", roundName, arenaName, DAFDMRoundTimer.GetRemainingText(), GetPlayerCount(), warmup));
 	}
 
 	void SendTeams(PlayerBase source)
@@ -500,6 +530,37 @@ class DAFDeathmatch
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 mode=%2 team=%3 arena=%4 pool=%5 loadout=%6 hands=%7", GetRoundDisplayName(), mode, team, arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: dummies=%1 drops=%2 corpses=%3 dropTtl=%4s corpseTtl=%5s", GetActiveTestDummyCount(), GetActiveDeathDropCount(), GetPendingCorpseCleanupCount(), m_Settings.deathDropCleanupSeconds, m_Settings.corpseCleanupSeconds));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: spawnSafety=%1 minPlayer=%2m minEnemy=%3m view=%4m angle=%5deg", m_Settings.enableSpawnSafety, m_Settings.spawnSafetyMinPlayerDistance, m_Settings.spawnSafetyMinEnemyDistance, m_Settings.spawnSafetyEnemyViewDistance, m_Settings.spawnSafetyEnemyViewAngleDegrees));
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: warmup=%1 pending=%2 infected=%3 threshold=%4 delay=%5s", m_WarmupActive, IsWarmupPending(), GetActiveWarmupInfectedCount(), m_Settings.warmupPlayerThreshold, m_Settings.warmupActivateDelaySeconds));
+	}
+
+	void SendSpawnReport(PlayerBase source)
+	{
+		EnsureRoundReady();
+
+		if (!source || !m_CurrentArena)
+		{
+			DAFDMChat.MessagePlayer(source, "SpawnReport: no active arena");
+			return;
+		}
+
+		DAFDMSpawnCandidate candidate = PickSpawnCandidate(source.GetIdentity(), source, false);
+		if (!candidate)
+		{
+			DAFDMChat.MessagePlayer(source, "SpawnReport: no spawn candidate available");
+			return;
+		}
+
+		string mode = "ffa";
+		string team = "";
+		if (IsTeamRound())
+		{
+			mode = "tdm";
+			team = GetTeamForIdentity(source.GetIdentity());
+		}
+
+		DAFDMChat.MessagePlayer(source, string.Format("SpawnReport: arena=%1 mode=%2 team=%3 chosen=%4/%5 safe=%6 fallback=%7 score=%8 pos=%9", m_CurrentArena.GetName(), mode, team, candidate.index, candidate.totalSpawns, !candidate.rejected, candidate.fallback, candidate.score, candidate.position));
+		DAFDMChat.MessagePlayer(source, string.Format("SpawnReport: reason=%1 players=%2 enemies=%3 friends=%4 closePlayers=%5 closeEnemies=%6 viewThreats=%7", candidate.reason, candidate.playerCount, candidate.enemyCount, candidate.friendlyCount, candidate.closePlayerCount, candidate.closeEnemyCount, candidate.viewThreatCount));
+		DAFDMChat.MessagePlayer(source, string.Format("SpawnReport: nearestPlayer=%1m %2 nearestEnemy=%3m %4 thresholds player=%5m enemy=%6m view=%7m/%8deg", candidate.nearestPlayerDistance, candidate.nearestPlayerName, candidate.nearestEnemyDistance, candidate.nearestEnemyName, m_Settings.spawnSafetyMinPlayerDistance, m_Settings.spawnSafetyMinEnemyDistance, m_Settings.spawnSafetyEnemyViewDistance, m_Settings.spawnSafetyEnemyViewAngleDegrees));
 	}
 
 	void ForceRound(PlayerBase source, string roundTypeName)
@@ -735,45 +796,88 @@ class DAFDeathmatch
 
 	vector PickSafeSpawn(PlayerIdentity identity, PlayerBase currentPlayer)
 	{
-		if (!m_CurrentArena)
+		DAFDMSpawnCandidate candidate = PickSpawnCandidate(identity, currentPlayer, true);
+		if (!candidate)
 			return "0 0 0";
 
+		return candidate.position;
+	}
+
+	DAFDMSpawnCandidate PickSpawnCandidate(PlayerIdentity identity, PlayerBase currentPlayer, bool includeRandom)
+	{
+		if (!m_CurrentArena)
+			return null;
+
 		if (!m_Settings.enableSpawnSafety)
-			return m_CurrentArena.GetRandomPlayerSpawn();
+			return MakeRandomSpawnCandidate("spawn safety disabled");
 
 		array<vector> spawns = m_CurrentArena.GetPlayerSpawns();
 		if (!spawns || spawns.Count() == 0)
-			return m_CurrentArena.GetRandomPlayerSpawn();
+			return MakeRandomSpawnCandidate("no configured player spawns");
 
-		vector bestSpawn = DAFDMArena.SnapToGround(spawns.GetRandomElement());
 		float bestScore = -1000000;
 		bool foundSafe = false;
+		DAFDMSpawnCandidate bestCandidate;
 
-		foreach (vector rawSpawn: spawns)
+		for (int i = 0; i < spawns.Count(); i++)
 		{
-			vector spawn = DAFDMArena.SnapToGround(rawSpawn);
-			bool rejected;
-			float score = ScoreSpawn(spawn, identity, currentPlayer, rejected);
-			if (!rejected && (!foundSafe || score > bestScore))
+			DAFDMSpawnCandidate candidate = AnalyzeSpawn(spawns[i], i, spawns.Count(), identity, currentPlayer, includeRandom);
+			if (!candidate.rejected && (!foundSafe || candidate.score > bestScore))
 			{
-				bestSpawn = spawn;
-				bestScore = score;
+				bestCandidate = candidate;
+				bestScore = candidate.score;
 				foundSafe = true;
 			}
-			else if (!foundSafe && score > bestScore)
+			else if (!foundSafe && candidate.score > bestScore)
 			{
-				bestSpawn = spawn;
-				bestScore = score;
+				bestCandidate = candidate;
+				bestScore = candidate.score;
 			}
 		}
 
-		return bestSpawn;
+		if (bestCandidate)
+		{
+			bestCandidate.fallback = !foundSafe;
+			if (bestCandidate.fallback && bestCandidate.reason == "")
+				bestCandidate.reason = "all spawns pressured; chose least-bad spawn";
+			else if (!bestCandidate.fallback && bestCandidate.reason == "")
+				bestCandidate.reason = "safe spawn selected";
+		}
+
+		return bestCandidate;
 	}
 
-	float ScoreSpawn(vector spawn, PlayerIdentity identity, PlayerBase currentPlayer, out bool rejected)
+	DAFDMSpawnCandidate MakeRandomSpawnCandidate(string reason)
 	{
-		rejected = false;
-		float score = 0;
+		array<vector> spawns = m_CurrentArena.GetPlayerSpawns();
+		if (!spawns || spawns.Count() == 0)
+		{
+			DAFDMSpawnCandidate centerCandidate = new DAFDMSpawnCandidate();
+			centerCandidate.index = -1;
+			centerCandidate.totalSpawns = 0;
+			centerCandidate.position = m_CurrentArena.GetRandomPlayerSpawn();
+			centerCandidate.reason = reason;
+			return centerCandidate;
+		}
+
+		int index = Math.RandomInt(0, spawns.Count());
+		DAFDMSpawnCandidate candidate = new DAFDMSpawnCandidate();
+		candidate.index = index;
+		candidate.totalSpawns = spawns.Count();
+		candidate.position = DAFDMArena.SnapToGround(spawns[index]);
+		candidate.reason = reason;
+		return candidate;
+	}
+
+	DAFDMSpawnCandidate AnalyzeSpawn(vector rawSpawn, int spawnIndex, int totalSpawns, PlayerIdentity identity, PlayerBase currentPlayer, bool includeRandom)
+	{
+		DAFDMSpawnCandidate candidate = new DAFDMSpawnCandidate();
+		candidate.index = spawnIndex;
+		candidate.totalSpawns = totalSpawns;
+		candidate.position = DAFDMArena.SnapToGround(rawSpawn);
+		candidate.nearestPlayerDistance = -1;
+		candidate.nearestEnemyDistance = -1;
+
 		array<Man> players = new array<Man>();
 		GetGame().GetWorld().GetPlayerList(players);
 
@@ -786,31 +890,91 @@ class DAFDeathmatch
 			if (IsSameIdentity(identity, other.GetIdentity()))
 				continue;
 
-			float distance = vector.Distance(spawn, other.GetPosition());
+			candidate.playerCount++;
+			float distance = vector.Distance(candidate.position, other.GetPosition());
+			if (candidate.nearestPlayerDistance < 0 || distance < candidate.nearestPlayerDistance)
+			{
+				candidate.nearestPlayerDistance = distance;
+				candidate.nearestPlayerName = GetPlayerDebugName(other);
+			}
+
 			if (m_Settings.spawnSafetyMinPlayerDistance > 0 && distance < m_Settings.spawnSafetyMinPlayerDistance)
-				rejected = true;
+			{
+				candidate.closePlayerCount++;
+				candidate.rejected = true;
+			}
 
 			if (!IsEnemyForSpawn(identity, other))
 			{
-				score += Math.Min(distance, m_Settings.spawnSafetyEnemyViewDistance) * 0.2;
+				candidate.friendlyCount++;
+				candidate.score += Math.Min(distance, m_Settings.spawnSafetyEnemyViewDistance) * 0.2;
 				continue;
 			}
 
-			score += Math.Min(distance, m_Settings.spawnSafetyEnemyViewDistance);
-			if (m_Settings.spawnSafetyMinEnemyDistance > 0 && distance < m_Settings.spawnSafetyMinEnemyDistance)
+			candidate.enemyCount++;
+			if (candidate.nearestEnemyDistance < 0 || distance < candidate.nearestEnemyDistance)
 			{
-				score -= 10000;
-				rejected = true;
+				candidate.nearestEnemyDistance = distance;
+				candidate.nearestEnemyName = GetPlayerDebugName(other);
 			}
 
-			if (IsLookingAtSpawn(other, spawn, distance))
+			candidate.score += Math.Min(distance, m_Settings.spawnSafetyEnemyViewDistance);
+			if (m_Settings.spawnSafetyMinEnemyDistance > 0 && distance < m_Settings.spawnSafetyMinEnemyDistance)
 			{
-				score -= 5000;
-				rejected = true;
+				candidate.score -= 10000;
+				candidate.closeEnemyCount++;
+				candidate.rejected = true;
+			}
+
+			if (IsLookingAtSpawn(other, candidate.position, distance))
+			{
+				candidate.score -= 5000;
+				candidate.viewThreatCount++;
+				candidate.rejected = true;
 			}
 		}
 
-		return score + Math.RandomFloat(0, 1);
+		if (candidate.rejected)
+			candidate.reason = BuildSpawnRejectReason(candidate);
+
+		if (includeRandom)
+			candidate.score += Math.RandomFloat(0, 1);
+
+		return candidate;
+	}
+
+	string BuildSpawnRejectReason(DAFDMSpawnCandidate candidate)
+	{
+		string reason = "";
+		if (candidate.closePlayerCount > 0)
+			reason = "player too close";
+
+		if (candidate.closeEnemyCount > 0)
+		{
+			if (reason != "")
+				reason += ", ";
+			reason += "enemy too close";
+		}
+
+		if (candidate.viewThreatCount > 0)
+		{
+			if (reason != "")
+				reason += ", ";
+			reason += "enemy looking at spawn";
+		}
+
+		if (reason == "")
+			return "pressured";
+
+		return reason;
+	}
+
+	string GetPlayerDebugName(PlayerBase player)
+	{
+		if (!player || !player.GetIdentity())
+			return "unknown";
+
+		return player.GetIdentity().GetName();
 	}
 
 	bool IsLookingAtSpawn(PlayerBase enemy, vector spawn, float distance)
@@ -1541,6 +1705,7 @@ class DAFDeathmatch
 
 	void CleanupRoundObjects()
 	{
+		CleanupWarmupInfected();
 		ClearTestDummies();
 		m_PendingCorpseCleanup.Clear();
 
@@ -1754,6 +1919,337 @@ class DAFDeathmatch
 		return count;
 	}
 
+	void StartWarmupTick()
+	{
+		if (m_WarmupTickStarted)
+			return;
+
+		m_WarmupTickStarted = true;
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.WarmupTick, m_Settings.warmupTickSeconds * 1000, true);
+	}
+
+	void WarmupTick()
+	{
+		EvaluateWarmupState("tick");
+		BroadcastWarmupHud();
+
+		if (!m_WarmupActive || !m_RoundActive || !m_CurrentArena)
+			return;
+
+		MaintainWarmupInfected();
+		RefillWarmupAmmo();
+	}
+
+	void EvaluateWarmupState(string source)
+	{
+		int playerCount = GetPlayerCount();
+		bool shouldWarmup = m_Settings.enableLowPopWarmup && playerCount > 0 && playerCount <= m_Settings.warmupPlayerThreshold;
+		if (!shouldWarmup)
+		{
+			m_WarmupActivationDueTime = 0;
+			if (m_WarmupActive)
+				DeactivateWarmup(source, playerCount);
+			else
+				BroadcastWarmupHud();
+
+			return;
+		}
+
+		if (m_WarmupActive)
+		{
+			BroadcastWarmupHud();
+			return;
+		}
+
+		int now = GetGame().GetTime();
+		if (m_WarmupActivationDueTime <= 0)
+		{
+			m_WarmupActivationDueTime = now + (m_Settings.warmupActivateDelaySeconds * 1000);
+			PrintFormat("DAFDeathmatch: low-pop warmup pending source=%1 players=%2 delay=%3s", source, playerCount, m_Settings.warmupActivateDelaySeconds);
+		}
+
+		if (now >= m_WarmupActivationDueTime)
+			ActivateWarmup(source, playerCount);
+	}
+
+	void ActivateWarmup(string source, int playerCount)
+	{
+		if (m_WarmupActive)
+			return;
+
+		m_WarmupActive = true;
+		m_WarmupActivationDueTime = 0;
+		PrintFormat("DAFDeathmatch: low-pop warmup activated source=%1 players=%2 threshold=%3", source, playerCount, m_Settings.warmupPlayerThreshold);
+		BroadcastWarmupHud();
+		MaintainWarmupInfected();
+		RefillWarmupAmmo();
+	}
+
+	void DeactivateWarmup(string source, int playerCount)
+	{
+		if (!m_WarmupActive)
+			return;
+
+		m_WarmupActive = false;
+		m_WarmupActivationDueTime = 0;
+		CleanupWarmupInfected();
+		PrintFormat("DAFDeathmatch: low-pop warmup deactivated source=%1 players=%2 threshold=%3", source, playerCount, m_Settings.warmupPlayerThreshold);
+		BroadcastWarmupHud();
+	}
+
+	bool IsWarmupActive()
+	{
+		return m_WarmupActive;
+	}
+
+	bool IsWarmupPending()
+	{
+		return !m_WarmupActive && m_WarmupActivationDueTime > 0;
+	}
+
+	bool ShouldBlockWarmupInfectedDamage(EntityAI source)
+	{
+		return m_WarmupActive && source && source.IsInherited(DayZInfected);
+	}
+
+	void OnPlayerDisconnected(PlayerBase player)
+	{
+		EvaluateWarmupState("player disconnected");
+	}
+
+	void BroadcastWarmupHud()
+	{
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		int count = GetPlayerCount();
+		string status = "";
+		if (m_WarmupActive)
+			status = "(Warmup Mode)";
+
+		foreach (Man man: players)
+		{
+			PlayerBase recipient = PlayerBase.Cast(man);
+			if (recipient && recipient.GetIdentity())
+				recipient.RPCSingleParam(-74700011, new Param2<int, string>(count, status), true, recipient.GetIdentity());
+		}
+	}
+
+	void SendWarmupHudTo(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
+		if (!recipient)
+			return;
+
+		string status = "";
+		if (m_WarmupActive)
+			status = "(Warmup Mode)";
+
+		recipient.RPCSingleParam(-74700011, new Param2<int, string>(GetPlayerCount(), status), true, identity);
+	}
+
+	void MaintainWarmupInfected()
+	{
+		CullWarmupInfected();
+
+		if (m_Settings.warmupInfectedTargetCount <= 0)
+			return;
+
+		while (m_WarmupInfected.Count() < m_Settings.warmupInfectedTargetCount)
+		{
+			if (!SpawnWarmupInfected())
+				return;
+		}
+	}
+
+	void CullWarmupInfected()
+	{
+		for (int i = m_WarmupInfected.Count() - 1; i >= 0; i--)
+		{
+			ZombieBase infected = m_WarmupInfected[i];
+			if (!infected || infected.ToDelete() || !infected.IsAlive())
+			{
+				if (infected && !infected.ToDelete())
+					GetGame().ObjectDelete(infected);
+
+				m_WarmupInfected.Remove(i);
+			}
+		}
+	}
+
+	bool SpawnWarmupInfected()
+	{
+		vector position = PickWarmupInfectedPosition();
+		Object spawnedObject = GetGame().CreateObjectEx(m_Settings.warmupInfectedType, position, ECE_INITAI | ECE_PLACE_ON_SURFACE);
+		if (!spawnedObject)
+		{
+			PrintFormat("DAFDeathmatch: failed to spawn warmup infected type=%1 at %2", m_Settings.warmupInfectedType, position.ToString(true));
+			return false;
+		}
+
+		ZombieBase infected = ZombieBase.Cast(spawnedObject);
+		if (!infected)
+		{
+			PrintFormat("DAFDeathmatch: warmup infected type=%1 did not create a ZombieBase", m_Settings.warmupInfectedType);
+			GetGame().ObjectDelete(spawnedObject);
+			return false;
+		}
+
+		m_WarmupInfected.Insert(infected);
+		ApplyWarmupInfectedMovement(infected);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.ApplyWarmupInfectedMovement, 500, false, infected);
+		return true;
+	}
+
+	void ApplyWarmupInfectedMovement(ZombieBase infected)
+	{
+		if (!infected || infected.ToDelete())
+			return;
+
+		DayZInfectedInputController controller = infected.GetInputController();
+		if (controller)
+			controller.OverrideMovementSpeed(true, m_Settings.warmupInfectedMovementSpeed);
+	}
+
+	vector PickWarmupInfectedPosition()
+	{
+		vector anchor = GetWarmupAnchorPosition();
+		float angle = Math.RandomFloatInclusive(0, Math.PI * 2);
+		float distance = Math.RandomFloatInclusive(m_Settings.warmupInfectedMinSpawnDistance, m_Settings.warmupInfectedMaxSpawnDistance);
+		vector position = Vector(anchor[0] + (Math.Cos(angle) * distance), anchor[1], anchor[2] + (Math.Sin(angle) * distance));
+		position = ClampWarmupPositionToArena(position);
+		return DAFDMArena.SnapToGround(position);
+	}
+
+	vector GetWarmupAnchorPosition()
+	{
+		PlayerBase player = GetWarmupAnchorPlayer();
+		if (player)
+			return player.GetPosition();
+
+		if (m_CurrentArena)
+			return m_CurrentArena.GetCenter();
+
+		return "0 0 0";
+	}
+
+	PlayerBase GetWarmupAnchorPlayer()
+	{
+		array<Man> players = new array<Man>();
+		GetGame().GetPlayers(players);
+
+		foreach (Man man: players)
+		{
+			PlayerBase player = PlayerBase.Cast(man);
+			if (player && player.GetIdentity() && player.IsAlive() && !IsTestDummy(player))
+				return player;
+		}
+
+		return null;
+	}
+
+	vector ClampWarmupPositionToArena(vector position)
+	{
+		if (!m_CurrentArena)
+			return position;
+
+		vector center = m_CurrentArena.GetCenter();
+		if (m_CurrentArena.IsRectangular())
+		{
+			float halfX = (m_CurrentArena.GetXSize() * 0.5) - 5;
+			float halfZ = (m_CurrentArena.GetZSize() * 0.5) - 5;
+			if (halfX > 1)
+				position[0] = Math.Clamp(position[0], center[0] - halfX, center[0] + halfX);
+			if (halfZ > 1)
+				position[2] = Math.Clamp(position[2], center[2] - halfZ, center[2] + halfZ);
+
+			return position;
+		}
+
+		float radius = m_CurrentArena.GetRadius() - 5;
+		if (radius <= 1)
+			return position;
+
+		float dx = position[0] - center[0];
+		float dz = position[2] - center[2];
+		float distance = Math.Sqrt((dx * dx) + (dz * dz));
+		if (distance <= radius || distance <= 0.1)
+			return position;
+
+		position[0] = center[0] + ((dx / distance) * radius);
+		position[2] = center[2] + ((dz / distance) * radius);
+		return position;
+	}
+
+	void CleanupWarmupInfected()
+	{
+		for (int i = m_WarmupInfected.Count() - 1; i >= 0; i--)
+		{
+			ZombieBase infected = m_WarmupInfected[i];
+			if (infected && !infected.ToDelete())
+				GetGame().ObjectDelete(infected);
+		}
+
+		m_WarmupInfected.Clear();
+	}
+
+	int GetActiveWarmupInfectedCount()
+	{
+		CullWarmupInfected();
+		return m_WarmupInfected.Count();
+	}
+
+	void RefillWarmupAmmo()
+	{
+		if (!m_Settings.warmupUnlimitedAmmo)
+			return;
+
+		array<Man> players = new array<Man>();
+		GetGame().GetPlayers(players);
+
+		foreach (Man man: players)
+		{
+			PlayerBase player = PlayerBase.Cast(man);
+			if (player && player.GetIdentity() && player.IsAlive() && !IsTestDummy(player))
+				RefillWarmupPlayerMagazines(player);
+		}
+	}
+
+	void RefillWarmupPlayerMagazines(PlayerBase player)
+	{
+		bool changed = false;
+		array<EntityAI> items = new array<EntityAI>();
+		player.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
+
+		foreach (EntityAI item: items)
+		{
+			changed = RefillWarmupMagazine(item) || changed;
+		}
+
+		if (changed)
+			player.SetSynchDirty();
+	}
+
+	bool RefillWarmupMagazine(EntityAI item)
+	{
+		Magazine magazine = Magazine.Cast(item);
+		if (!magazine || magazine.IsAmmoPile())
+			return false;
+
+		if (Weapon_Base.Cast(magazine.GetHierarchyParent()))
+			return false;
+
+		if (magazine.GetAmmoCount() >= magazine.GetAmmoMax())
+			return false;
+
+		magazine.ServerSetAmmoMax();
+		magazine.SetSynchDirty();
+		return true;
+	}
+
 	DAFDMSettings GetSettings()
 	{
 		return m_Settings;
@@ -1772,6 +2268,27 @@ class DAFDMDeathDrop
 		ownerId = dropOwnerId;
 		magazineType = dropMagazineType;
 	}
+}
+
+class DAFDMSpawnCandidate
+{
+	int index = -1;
+	int totalSpawns = 0;
+	vector position;
+	float score = 0;
+	bool rejected = false;
+	bool fallback = false;
+	string reason = "";
+	int playerCount = 0;
+	int enemyCount = 0;
+	int friendlyCount = 0;
+	int closePlayerCount = 0;
+	int closeEnemyCount = 0;
+	int viewThreatCount = 0;
+	float nearestPlayerDistance = -1;
+	float nearestEnemyDistance = -1;
+	string nearestPlayerName = "none";
+	string nearestEnemyName = "none";
 }
 
 static ref DAFDeathmatch g_DAFDeathmatch;

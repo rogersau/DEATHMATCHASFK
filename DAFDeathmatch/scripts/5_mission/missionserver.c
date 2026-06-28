@@ -73,4 +73,12 @@ modded class MissionServer
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DAFDMRoundTimer.BroadcastTo, 15000, false, identity);
 		}
 	}
+
+	override void InvokeOnDisconnect(PlayerBase player)
+	{
+		super.InvokeOnDisconnect(player);
+
+		if (g_DAFDeathmatch)
+			g_DAFDeathmatch.OnPlayerDisconnected(player);
+	}
 }

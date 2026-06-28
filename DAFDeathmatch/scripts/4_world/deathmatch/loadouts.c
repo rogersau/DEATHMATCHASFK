@@ -83,7 +83,7 @@ class DAFDMLoadoutRegistry
 		return picked;
 	}
 
-	private DAFDMLoadoutPoolConfig GetPool(string name)
+	DAFDMLoadoutPoolConfig GetPool(string name)
 	{
 		foreach (DAFDMLoadoutPoolConfig pool: m_Pools)
 		{
@@ -92,6 +92,16 @@ class DAFDMLoadoutRegistry
 		}
 
 		return null;
+	}
+
+	int Count()
+	{
+		return m_Pools.Count();
+	}
+
+	array<ref DAFDMLoadoutPoolConfig> GetAll()
+	{
+		return m_Pools;
 	}
 
 	private DAFDMLoadoutEntryConfig PickWeighted(DAFDMLoadoutPoolConfig pool)

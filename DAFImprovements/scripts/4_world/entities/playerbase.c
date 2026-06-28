@@ -416,6 +416,15 @@ modded class PlayerBase extends ManBase
 				if (s_KillFeed)
 					s_KillFeed.SetPlayerCount(playerCount.param1);
 			}
+			else if (rpc_type == -74700011)
+			{
+				Param2<int, string> playerCountStatus;
+				if (!ctx.Read(playerCountStatus))
+					return;
+
+				if (s_KillFeed)
+					s_KillFeed.SetPlayerCountStatus(playerCountStatus.param1, playerCountStatus.param2);
+			}
 			else if (rpc_type == -74700007)
 			{
 				Param1<bool> respawnData;

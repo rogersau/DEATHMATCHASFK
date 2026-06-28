@@ -19,6 +19,8 @@ The launcher prepares:
 - converted `DAFDeathmatch` profile config
 - local server config with `BattlEye = 0`
 
+On startup and after `@reloadconfig`, `DAFDeathmatch` writes a config report to the script log. Check any `DAFDeathmatch config warning` lines before a serious test; missing loadout classes usually mean the local test launch is missing a weapon/attachment mod or the converted config still references an unavailable class.
+
 ## Start Client
 
 In another PowerShell window:
@@ -43,6 +45,7 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 @status
 @teams
 @inspect
+@spawnreport
 @shuffleteams
 @spawndummy
 @cleardummies
@@ -53,7 +56,9 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 @timeleft
 ```
 
-`@forcearena`, `@forcenext`, `@forcetdm`, and `@shuffleteams` are admin test helpers. Explicitly forced arenas can include arenas excluded from normal rotation, which is useful for checking old problem arenas without putting them back into live selection. `@forcetdm <type> [arena]` overrides only the next round's mode; it does not rewrite the configured round type.
+`@forcearena`, `@forcenext`, `@forcetdm`, `@spawnreport`, and `@shuffleteams` are admin test helpers. Explicitly forced arenas can include arenas excluded from normal rotation, which is useful for checking old problem arenas without putting them back into live selection. `@forcetdm <type> [arena]` overrides only the next round's mode; it does not rewrite the configured round type.
+
+`@spawnreport` explains the current arena's spawn-safety pick for you: chosen spawn index, whether the pick is a fallback, nearby player/enemy counts, view-cone threats, nearest player/enemy distance, and active thresholds.
 
 `@spawndummy`, `@cleardummies`, and `@testdrop` require admin access and `enableAdminTestCommands = true` in `settings.json`. `@respawn` is admin-only unless `enablePlayerRespawnCommand = true`.
 
@@ -61,9 +66,12 @@ TDM is enabled per round type by setting that round type's `gameMode` to `tdm`; 
 
 TDM enforces team clothing by default: red team gets red tracksuit jacket/pants, red sneaker-style shoes, red bandana face covering, and red armband; blue team gets the blue equivalents. The item class names are configurable in `settings.json`.
 
+Low-pop warmup is enabled by default. With one real player connected, warmup activates after `warmupActivateDelaySeconds` seconds, defaulting to 30. The player count HUD should show `(Warmup Mode)`, warmup infected should keep respawning near the active arena, infected should not damage the player, and spare magazines should refill while the loaded magazine still has to be reloaded normally. Warmup turns off immediately when a second real player joins.
+
 ## Smoke Checklist
 
 - Clothes spawn.
+- Script log shows a `DAFDeathmatch: config report` and `DAFDeathmatch: config flags` line on startup.
 - First spawn appears directly in the current arena without a visible wrong-position flash.
 - New spawns avoid close enemies and enemies looking directly at the spawn where the arena has safer alternatives.
 - Weapon spawns in normal, snipers, freshies, and juiced rounds.
@@ -79,7 +87,13 @@ TDM enforces team clothing by default: red team gets red tracksuit jacket/pants,
 - `@forcetdm normal <arena>` starts a predictable TDM test round without editing config.
 - `@teams` shows current team assignment counts and team score during TDM.
 - TDM players spawn with matching red/blue tracksuits, shoes, bandana face coverings, and armbands even when the loadout pool would normally roll different clothing.
+- With one real player connected for 30 seconds, the player count HUD shows `(Warmup Mode)`.
+- Warmup infected spawn near the arena, move slower than normal, respawn after being killed, and cannot damage the player.
+- During warmup, spare magazines refill but the currently loaded magazine still runs down and requires reloading.
+- When a second real player joins, warmup status clears and warmup infected are deleted.
 - `@inspect` shows the server's current round, mode, team, arena, loadout pool, last rolled loadout, and item in hands.
+- `@inspect` also shows whether warmup is active or pending and how many warmup infected are currently tracked.
+- `@spawnreport` shows why the current arena's spawn-safety logic picked a spawn.
 - `@spawndummy` creates a survivor-looking test target near you for solo shooting/death-drop checks.
 - `@cleardummies` removes tracked test targets without ending the round.
 - `@testdrop [weapon] [bonus]` creates a tracked death-drop weapon near you without requiring a kill.

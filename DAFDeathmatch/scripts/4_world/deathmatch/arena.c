@@ -211,6 +211,16 @@ class DAFDMArenaRegistry
 		return null;
 	}
 
+	int Count()
+	{
+		return m_Arenas.Count();
+	}
+
+	array<ref DAFDMArena> GetAll()
+	{
+		return m_Arenas;
+	}
+
 	bool IsExcluded(DAFDMSettings settings, string arenaName)
 	{
 		return settings && settings.excludedArenas && settings.excludedArenas.Find(arenaName) >= 0;

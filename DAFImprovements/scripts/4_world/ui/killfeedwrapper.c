@@ -6,6 +6,8 @@ class KillFeedWrapper
 	private TextWidget playerCount;
 	private TextWidget roundTimer;
 	private string roundLabel;
+	private int playerCountValue;
+	private string playerCountStatus;
 	private ref array<ref KillFeedItem> items;
 
 	void KillFeedWrapper()
@@ -26,6 +28,8 @@ class KillFeedWrapper
 
 		items = new array<ref KillFeedItem>();
 		roundLabel = "Round";
+		playerCountValue = 0;
+		playerCountStatus = "";
 		SetRoundTimeRemaining(-1);
 	}
 
@@ -54,8 +58,28 @@ class KillFeedWrapper
 
 	void SetPlayerCount(int count)
 	{
+		playerCountValue = count;
+		UpdatePlayerCount();
+	}
+
+	void SetPlayerCountStatus(int count, string status)
+	{
+		playerCountValue = count;
+		playerCountStatus = status;
+		UpdatePlayerCount();
+	}
+
+	void UpdatePlayerCount()
+	{
+		if (!playerCount)
+			return;
+
+		string text = "Players: " + playerCountValue.ToString();
+		if (playerCountStatus != "")
+			text += " " + playerCountStatus;
+
 		if (playerCount)
-			playerCount.SetText("Players: " + count.ToString());
+			playerCount.SetText(text);
 	}
 
 	void SetRoundTimeRemaining(int seconds)

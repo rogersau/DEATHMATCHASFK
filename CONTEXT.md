@@ -58,13 +58,15 @@ The current Crimson Zamboni compatibility load shape is:
 
 `DAFDeathmatch` is the in-progress replacement for Crimson Zamboni Deathmatch.
 
-The target final architecture is one opinionated client/server deathmatch mod:
+The final product is one standalone, opinionated client/server deathmatch mod:
 
 ```text
 -mod=@DAFDeathmatch
 ```
 
-During migration it may temporarily load beside `DAFImprovements`:
+`CrimsonZamboniDeathmatch`, `DAFServerImprovements`, and separate `DAFImprovements` loading are migration scaffolding, not the final shape. New strategic gameplay work should move `DAFDeathmatch` toward production parity rather than deepen the bridge stack.
+
+During migration, `DAFDeathmatch` may temporarily load beside `DAFImprovements`:
 
 ```text
 -mod=@DAFImprovements;@DAFDeathmatch
@@ -89,7 +91,9 @@ The first playable cut is player-experience led:
 - Basic commands
 - Clean server RPT startup
 
-Admin/server-ops polish such as Discord, votes, events, leaderboards, and advanced cleanup can follow after the core PvP loop is solid.
+Production parity means the standalone server can replace the live DAF deathmatch experience without dropping expected live behavior. Discord integration, low-pop warmup, and player voting are part of production parity because the current server has them. Leaderboards, advanced event scheduling, and advanced cleanup can follow after the production replacement is solid.
+
+The current production-parity phase includes Discord two-webhook integration, low-pop warmup, Zamboni-style voting, production deployment documentation, config validation for those systems, and MVP hardening needed to safely replace the live server. Auto-TDM by player count, leaderboards, advanced event scheduling, arena expansion by population, richer vote UX, long-term stats persistence, external admin dashboards, and polished Discord embellishments are later-phase work.
 
 ## Config Direction
 
@@ -150,9 +154,7 @@ Use weighted random with light anti-repeat:
 
 ## First-Cut Gameplay Decisions
 
-Infected/low-pop warmup waits until after the core PvP loop is solid.
-
-Discord waits until after the core PvP loop is solid, though config placeholders are fine.
+Low-pop warmup and Discord wait until after the core PvP loop is solid, but they are required before standalone is production-parity ready.
 
 First admin commands:
 
@@ -160,6 +162,10 @@ First admin commands:
 - `@reloadconfig`
 
 `@reloadconfig` should reload settings for future rounds only. Use `@endround` to force the transition.
+
+Player voting should be included in the production-parity pass. The first vote pass should mimic the Crimson Zamboni behavior rather than inventing a richer voting product: one active vote at a time, configurable vote duration, configurable minimum player count, `@vote 1` for yes, `@vote 2` for no, one vote per player identity, early completion once either side has a majority of current players, and success only when more than half of current players voted and yes votes are a majority of votes cast.
+
+Standalone vote targets should map onto standalone-owned concepts: end the current round, set the next arena, and set the next round type. Zamboni's event vote maps to standalone round type voting rather than preserving a separate event concept. First-pass public vote commands are `@endvote`, `@arenavote <arena>`, `@roundvote <round type>`, `@eventvote <round type>` as a Zamboni-familiar alias, and `@vote 1` / `@vote 2`.
 
 Radius and rectangular arenas should both be supported. Basic arena walls should be included in the first playable cut. Round-end cleanup should delete loose items and tracked round-created objects, with sane exclusions for players, vehicles, buildings, and persistent world objects. During long rounds, rely on DayZ central economy cleanup rather than periodic cleanup.
 
@@ -192,8 +198,32 @@ TDM scoring should count enemy kills toward both player K:D and team score. Frie
 
 Admins can force a one-off TDM round for testing or events without rewriting config. This is an operational override for the next round only; configured round types remain the durable source of normal rotation behavior.
 
+Players should not decide when the server uses TDM. In the current phase, TDM is selected only by configured round types or operator/event overrides. Future server policy may choose TDM automatically when player count is high enough, but that threshold and selection behavior are deliberately deferred. Public voting should not expose TDM as a separate choice; players can vote only for configured round types.
+
 TDM loadouts must preserve readable team identity. After the normal loadout outfit roll, the server enforces configured team clothing for red and blue teams by replacing body, legs, feet, mask, and armband slots with matching tracksuits, sneaker-style shoes, bandana face coverings, and armbands before weapons and inventory items are created.
 
 Worn and carried player items should not degrade during combat in either FFA or TDM. `DAFImprovements` protects damage on living-player-owned items, and standalone spawn/loadout code should repair freshly equipped player attachments so each respawn starts with pristine clothing.
 
 Weapons should not jam during the DAF PvP loop. `DAFImprovements` disables weapon jam state and jam chance at the shared weapon base layer so the guarantee applies to both the standalone `DAFDeathmatch` path and the Crimson Zamboni compatibility stack.
+
+## Low-Pop Warmup
+
+Low-pop warmup is a server-owned round modifier, not a separate round mode. Normal rounds continue to run, players still spawn into the arena, and the server adds warmup helpers while population is too low for real PvP.
+
+Warmup should feel like target practice rather than survival pressure. Infected spawned for warmup cannot damage players, keep respawning while warmup is active, and move slightly slower than normal infected. Players should have unlimited ammunition during warmup, but still need to reload so weapon rhythm and magazine handling remain familiar.
+
+Warmup defaults to one real player: it is active when exactly one real player is present, and inactive once two or more real players are present or the server is empty. Test dummies do not count as real players. Warmup should deactivate immediately when the player count rises above the threshold, but activate only after a short delay, defaulting to 30 seconds, when the server drops back to low population.
+
+Warmup infected do not affect normal scoring. Killing warmup infected should not increment player K:D, and infected interactions should not be sent through the normal player killfeed or Discord killfeed. PvP kills remain the only source of normal kill scoring.
+
+The player count HUD should indicate warmup clearly, such as showing `(Warmup Mode)` when warmup is active.
+
+## Discord Integration
+
+Discord integration is part of standalone production parity. It should use two independently configurable webhook endpoints: a noisy PvP killfeed endpoint and a quieter server-events endpoint.
+
+The killfeed endpoint is for PvP killfeed messages only. It should not receive warmup infected kills, respawns, death-drop pickups, or operational chatter.
+
+The server-events endpoint is for lower-volume lifecycle and summary messages such as server start/readiness, round start, round end summary, TDM team scores, top player, top K:D, furthest shot, and top weapon when those highlights are available.
+
+Discord webhook URLs are server-side config only and must be individually enableable/disableable.
