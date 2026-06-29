@@ -28,7 +28,7 @@ WrapSpacerWidgetClass MurderInfoWrap {
    "Size To Content H" 1
    "Size To Content V" 1
    content_halign right
-   Columns 9
+   Columns 10
    Rows 1
    {
     FrameWidgetClass padding1 {
@@ -82,7 +82,7 @@ WrapSpacerWidgetClass MurderInfoWrap {
     TextWidgetClass KillDst {
      ignorepointer 1
      position 0 0
-     size 110 30
+     size 72 30
      hexactpos 0
      vexactpos 0
      hexactsize 1
@@ -91,6 +91,24 @@ WrapSpacerWidgetClass MurderInfoWrap {
      text_proportion 0.6
      "text halign" center
      "text valign" center
+    }
+    ImageWidgetClass HeadshotIcon {
+     visible 0
+     ignorepointer 1
+     color 1 1 1 0.9
+     position 0 4
+     size 26 26
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     fixaspect fixwidth
+     image0 "DAFImprovements/assets/icons/headshot.paa"
+     mode blend
+     "src alpha" 1
+     "clamp mode" clamp
+     filter 1
+     nocache 0
     }
     TextWidgetClass TargetName {
      ignorepointer 1

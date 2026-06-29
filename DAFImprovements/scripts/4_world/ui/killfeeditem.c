@@ -5,6 +5,7 @@ class KillFeedItem
 	private TextWidget murderName;
 	private TextWidget targetName;
 	private TextWidget dst;
+	private ImageWidget headshotIcon;
 	private ItemPreviewWidget murderWeapon;
 
 	private ref KillFeedWrapper parent;
@@ -30,6 +31,7 @@ class KillFeedItem
 			murderName = TextWidget.Cast(root.FindAnyWidget("MurderName"));
 			targetName = TextWidget.Cast(root.FindAnyWidget("TargetName"));
 			dst = TextWidget.Cast(root.FindAnyWidget("KillDst"));
+			headshotIcon = ImageWidget.Cast(root.FindAnyWidget("HeadshotIcon"));
 			murderWeapon = ItemPreviewWidget.Cast(root.FindAnyWidget("MurderWeapon"));
 
 			if (murderName)
@@ -37,12 +39,11 @@ class KillFeedItem
 			if (targetName)
 				targetName.SetText(FormatNick(tName));
 			
-			// Format distance text with headshot indicator
 			string distanceText = dist.ToString() + "m";
-			if (headshot == 1)
-				distanceText = distanceText + " [HS]";
 			if (dst)
 				dst.SetText(distanceText);
+			if (headshotIcon)
+				headshotIcon.Show(headshot == 1);
 
 			SetWeapon(wType);
 		}

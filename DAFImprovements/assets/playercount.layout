@@ -1,6 +1,6 @@
 FrameWidgetClass PlayerCountRoot {
  position 30 100
- size 300 34
+ size 300 68
  hexactpos 1
  vexactpos 1
  hexactsize 1
@@ -21,6 +21,79 @@ FrameWidgetClass PlayerCountRoot {
    "size to text v" 0
    "text halign" left
    "text valign" center
+  }
+  FrameWidgetClass RoundStatsRoot {
+   ignorepointer 1
+   position 0 34
+   size 300 30
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   {
+    ImageWidgetClass KillsIcon {
+     ignorepointer 1
+     color 1 1 1 0.85
+     position 0 2
+     size 24 28
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     fixaspect fixwidth
+     image0 "DAFImprovements/assets/icons/kills.paa"
+     mode blend
+     "src alpha" 1
+     "clamp mode" clamp
+     filter 1
+     nocache 0
+    }
+    TextWidgetClass KillsCount {
+     ignorepointer 1
+     color 1 1 1 0.85
+     position 26 0
+     size 46 28
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     text "0"
+     text_proportion 0.72
+     "text halign" left
+     "text valign" center
+    }
+    ImageWidgetClass DeathsIcon {
+     ignorepointer 1
+     color 1 1 1 0.85
+     position 82 2
+     size 24 28
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     fixaspect fixwidth
+     image0 "DAFImprovements/assets/icons/deaths.paa"
+     mode blend
+     "src alpha" 1
+     "clamp mode" clamp
+     filter 1
+     nocache 0
+    }
+    TextWidgetClass DeathsCount {
+     ignorepointer 1
+     color 1 1 1 0.85
+     position 108 0
+     size 46 28
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     text "0"
+     text_proportion 0.72
+     "text halign" left
+     "text valign" center
+    }
+   }
   }
  }
 }

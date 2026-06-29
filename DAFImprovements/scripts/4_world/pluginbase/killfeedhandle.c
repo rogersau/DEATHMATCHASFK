@@ -91,6 +91,8 @@ class KillFeedHandle : PluginBase
 			targetDeaths = GetRoundDeaths(victim.GetIdentity());
 			murderName = FormatRoundScoreName(murderName, murderKills, murderDeaths);
 			targetName = FormatRoundScoreName(targetName, targetKills, targetDeaths);
+			DAFRPC.SendRoundStats(murder.GetIdentity(), murderKills, murderDeaths);
+			DAFRPC.SendRoundStats(victim.GetIdentity(), targetKills, targetDeaths);
 			
 			if (isHeadshot)
 				headshot = 1;
@@ -118,6 +120,7 @@ class KillFeedHandle : PluginBase
 	void SendPlayerCount()
 	{
 		DAFRPC.SendPlayerCount(GetPlayerCount());
+		SendRoundStatsToAll();
 	}
 
 	string FormatRoundScoreName(string name, int kills, int deaths)
@@ -134,6 +137,20 @@ class KillFeedHandle : PluginBase
 	void SendRoundStatsReset()
 	{
 		DAFRPC.SendKillfeedReset();
+		DAFRPC.ResetRoundStatsHud();
+	}
+
+	void SendRoundStatsToAll()
+	{
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		foreach (Man man: players)
+		{
+			PlayerBase player = PlayerBase.Cast(man);
+			if (player && player.GetIdentity())
+				DAFRPC.SendRoundStats(player.GetIdentity(), GetRoundKills(player.GetIdentity()), GetRoundDeaths(player.GetIdentity()));
+		}
 	}
 
 	void EnsureRoundStats(PlayerIdentity identity)

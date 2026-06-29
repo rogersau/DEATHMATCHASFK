@@ -117,6 +117,7 @@ class DAFDeathmatch
 		m_Scoreboard.Reset();
 		m_Teams.Reset();
 		m_Discord.ResetRoundStats();
+		DAFRPC.ResetRoundStatsHud();
 		PrintFormat("DAFDeathmatch: %1 round started in arena %2", GetRoundDisplayName(), m_CurrentArena.GetName());
 
 		SpawnArenaWalls();
@@ -189,6 +190,10 @@ class DAFDeathmatch
 		m_DeathFlow.OnKilled(victim);
 
 		PlayerIdentity identity = victim.GetIdentity();
+		SendScoreHudTo(identity);
+		if (killer)
+			SendScoreHudTo(killer.GetIdentity());
+
 		if (ShouldAutoRespawn(identity))
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnIdentity, m_Settings.respawnSeconds * 1000, false, identity, victim);
 	}
@@ -1511,6 +1516,7 @@ class DAFDeathmatch
 			roundLabel = GetRoundDisplayName();
 
 		DAFRPC.BroadcastRoundHudState(roundSeconds, roundLabel, GetPlayerCount(), GetClientPlayerCountStatus(), IsManualRespawnAllowedForClients());
+		BroadcastScoreHud();
 	}
 
 	void SendClientStateTo(PlayerIdentity identity)
@@ -1524,6 +1530,26 @@ class DAFDeathmatch
 			roundLabel = GetRoundDisplayName();
 
 		DAFRPC.SendRoundHudState(identity, roundSeconds, roundLabel, GetPlayerCount(), GetClientPlayerCountStatus(), IsManualRespawnAllowedForClients());
+		SendScoreHudTo(identity);
+	}
+
+	void BroadcastScoreHud()
+	{
+		array<PlayerIdentity> identities = new array<PlayerIdentity>();
+		GetGame().GetPlayerIndentities(identities);
+
+		foreach (PlayerIdentity identity: identities)
+		{
+			SendScoreHudTo(identity);
+		}
+	}
+
+	void SendScoreHudTo(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		DAFRPC.SendRoundStats(identity, m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity));
 	}
 
 	string GetClientPlayerCountStatus()

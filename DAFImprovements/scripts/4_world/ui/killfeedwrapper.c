@@ -4,10 +4,14 @@ class KillFeedWrapper
 	private Widget playerCountRoot;
 	private Widget roundTimerRoot;
 	private TextWidget playerCount;
+	private TextWidget killsCount;
+	private TextWidget deathsCount;
 	private TextWidget roundTimer;
 	private string roundLabel;
 	private int playerCountValue;
 	private string playerCountStatus;
+	private int killsValue;
+	private int deathsValue;
 	private ref array<ref KillFeedItem> items;
 
 	void KillFeedWrapper()
@@ -17,7 +21,11 @@ class KillFeedWrapper
 		roundTimerRoot = GetGame().GetWorkspace().CreateWidgets("DAFImprovements/assets/roundtimer.layout", null);
 
 		if (playerCountRoot)
+		{
 			playerCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("PlayerCount"));
+			killsCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("KillsCount"));
+			deathsCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("DeathsCount"));
+		}
 		else
 			Print("DAFImprovements: failed to create player count HUD widget");
 
@@ -30,7 +38,10 @@ class KillFeedWrapper
 		roundLabel = "Round";
 		playerCountValue = 0;
 		playerCountStatus = "";
+		killsValue = 0;
+		deathsValue = 0;
 		SetRoundTimeRemaining(-1);
+		SetRoundStats(0, 0);
 	}
 
 	Widget GetRoot()
@@ -80,6 +91,22 @@ class KillFeedWrapper
 
 		if (playerCount)
 			playerCount.SetText(text);
+	}
+
+	void SetRoundStats(int kills, int deaths)
+	{
+		killsValue = kills;
+		deathsValue = deaths;
+		UpdateRoundStats();
+	}
+
+	void UpdateRoundStats()
+	{
+		if (killsCount)
+			killsCount.SetText(killsValue.ToString());
+
+		if (deathsCount)
+			deathsCount.SetText(deathsValue.ToString());
 	}
 
 	void SetRoundTimeRemaining(int seconds)
