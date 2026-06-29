@@ -45,6 +45,10 @@ Put features here when they are generic DayZ behavior, UI, or shared prediction/
 
 `DAFImprovements` must not reference classes that only exist in the Crimson Zamboni Deathmatch server mod. Clients load this addon, and clients do not have the reference Deathmatch mod installed.
 
+## Validation
+
+- After changing DayZ script code, run `.\Invoke-StandaloneE2ETest.ps1 -Repack -StartupTimeoutSeconds 90` before calling the fix done. Addon Builder can pack successfully even when the DayZ script compiler later rejects the code on server startup.
+
 ### `DAFServerImprovements`
 
 Use this addon only for server-side glue that depends on the server-only Crimson Zamboni Deathmatch mod.

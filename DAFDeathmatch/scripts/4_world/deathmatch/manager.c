@@ -84,6 +84,7 @@ class DAFDeathmatch
 		m_CommandRoutes = new map<string, int>();
 		RegisterCommandRoutes();
 		m_VoteTickStarted = false;
+		ApplyWeaponFireModeSetting();
 	}
 
 	void Start()
@@ -239,6 +240,10 @@ class DAFDeathmatch
 	void OnPlayerPickedUpItem(PlayerBase player, EntityAI item)
 	{
 		m_DeathFlow.OnItemPickedUp(player, item);
+
+		Weapon_Base weapon = Weapon_Base.Cast(item);
+		if (weapon)
+			DAFWeaponFireModeHelper.SetPreferredFireMode(weapon);
 	}
 
 	void OnEvent(EventType eventTypeId, Param params)
@@ -420,6 +425,7 @@ class DAFDeathmatch
 			m_Arenas.Load();
 			m_Loadouts.Load();
 			DAFDMConfigReport.PrintReport(m_Settings, m_Arenas, m_Loadouts, "reload");
+			ApplyWeaponFireModeSetting();
 			EvaluateWarmupState("reloadconfig");
 			CancelVoteIfDisabled();
 			DAFDMChat.MessagePlayer(source, "Config reloaded for future rounds");
@@ -1537,6 +1543,11 @@ class DAFDeathmatch
 	DAFDMSettings GetSettings()
 	{
 		return m_Settings;
+	}
+
+	void ApplyWeaponFireModeSetting()
+	{
+		DAFWeaponFireModeHelper.SetForcePreferredFireMode(m_Settings.forcePreferredWeaponFireMode);
 	}
 }
 

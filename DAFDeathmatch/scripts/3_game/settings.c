@@ -65,6 +65,7 @@ class DAFDMSettings
 	float warmupInfectedMaxSpawnDistance = 55;
 	float warmupInfectedMovementSpeed = 1.0;
 	bool warmupUnlimitedAmmo = true;
+	bool forcePreferredWeaponFireMode = true;
 	string teamAssignmentMode = "balancedRandom";
 	bool enforceTDMTeamOutfits = true;
 	string tdmRedJacket = "TrackSuitJacket_Red";

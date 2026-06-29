@@ -429,6 +429,8 @@ class DAFDMLoadoutEngine
 				weaponBase.SpawnAmmo(loadedMagazineType, Weapon_Base.SAMF_DEFAULT);
 		}
 
+		DAFWeaponFireModeHelper.SetPreferredFireMode(weaponBase);
+
 		foreach (string spareMagazineType: config.spareMagazines)
 		{
 			inventory.CreateInInventory(spareMagazineType);
@@ -465,6 +467,8 @@ class DAFDMLoadoutEngine
 					weaponBase.SpawnAmmo("Mag_STANAG_30Rnd", Weapon_Base.SAMF_DEFAULT);
 				else
 					weaponBase.SpawnAmmo("Ammo_308Win", Weapon_Base.SAMF_DEFAULT);
+
+				DAFWeaponFireModeHelper.SetPreferredFireMode(weaponBase);
 			}
 
 			player.SetQuickBarEntityShortcut(weapon, 0, true);
