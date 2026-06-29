@@ -76,7 +76,7 @@ class KillFeedWrapper
 
 		string text = "Players: " + playerCountValue.ToString();
 		if (playerCountStatus != "")
-			text += " " + playerCountStatus;
+			text += " - " + playerCountStatus;
 
 		if (playerCount)
 			playerCount.SetText(text);

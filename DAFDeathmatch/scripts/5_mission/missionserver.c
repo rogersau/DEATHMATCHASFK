@@ -66,11 +66,6 @@ modded class MissionServer
 		if (g_DAFDeathmatch)
 		{
 			g_DAFDeathmatch.OnPlayerConnected(player);
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DAFDMRoundTimer.BroadcastTo, 1000, false, identity);
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DAFDMRoundTimer.BroadcastTo, 3000, false, identity);
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DAFDMRoundTimer.BroadcastTo, 6000, false, identity);
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DAFDMRoundTimer.BroadcastTo, 10000, false, identity);
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DAFDMRoundTimer.BroadcastTo, 15000, false, identity);
 		}
 	}
 

@@ -1,6 +1,7 @@
 param(
     [int] $Port = 2536,
     [switch] $Repack,
+    [switch] $NoStart,
     [switch] $NoPause
 )
 
@@ -11,7 +12,8 @@ $ServerExe = "C:\Program Files (x86)\Steam\steamapps\common\DayZServer\DayZServe
 $ServerDir = Split-Path -Parent $ServerExe
 $ServerTest = Join-Path $Repo "build\server-test"
 $Profile = Join-Path $ServerTest "profile-local-crimson-namalsk"
-$Config = Join-Path $ServerTest "serverDZ.prd1-namalsk.cfg"
+$BaseConfig = Join-Path $ServerTest "serverDZ.prd1-namalsk.cfg"
+$Config = Join-Path $ServerTest "serverDZ.crimson-namalsk.cfg"
 $BackupRoot = Join-Path $Repo "build\rar-extract\deathmatch-backup\deathmatch back up\Deathmatch"
 $BackupProfile = Join-Path $BackupRoot "profiles\deathmatch"
 $BackupMission = Join-Path $BackupRoot "mpmissions\deathmatch.namalsk"
@@ -84,8 +86,20 @@ function Copy-Addon {
     Copy-Item -LiteralPath $Pbo -Destination (Join-Path $Dest "$Name.pbo") -Force
 }
 
+function Ensure-LocalBattleEyeDisabled {
+    Assert-Path $BaseConfig "Base server config"
+    $Content = Get-Content -LiteralPath $BaseConfig -Raw
+    if ($Content -match '(?m)^\s*BattlEye\s*=') {
+        $Content = [regex]::Replace($Content, '(?m)^\s*BattlEye\s*=.*?;', 'BattlEye = 0;')
+    } else {
+        $Content = "BattlEye = 0;`r`n" + $Content
+    }
+
+    Set-Content -LiteralPath $Config -Value $Content -Encoding ASCII
+}
+
 Assert-Path $ServerExe "DayZ server executable"
-Assert-Path $Config "Server config"
+Ensure-LocalBattleEyeDisabled
 
 foreach ($Entry in $WorkshopMods.GetEnumerator()) {
     Ensure-Junction (Join-Path $ServerTest $Entry.Key) $Entry.Value
@@ -141,7 +155,13 @@ $Args = @(
 Write-Host "Starting DAF Crimson Namalsk test server..." -ForegroundColor Cyan
 Write-Host "Profile: $Profile"
 Write-Host "Port: $Port"
+Write-Host "BattlEye: disabled"
 Write-Host ""
+
+if ($NoStart) {
+    Write-Host "NoStart set; not launching server." -ForegroundColor Yellow
+    return
+}
 
 Push-Location $ServerDir
 try {

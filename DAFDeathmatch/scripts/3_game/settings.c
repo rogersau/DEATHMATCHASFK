@@ -45,6 +45,12 @@ class DAFDMSettings
 	string discordServerEventsWebhookUrl = "";
 	string discordServerName = "";
 	bool discordSuppressEmbeds = false;
+	bool enableVoting = true;
+	bool enableEndRoundVote = true;
+	bool enableArenaVote = true;
+	bool enableRoundTypeVote = true;
+	int voteMinimumPlayers = 2;
+	int voteDurationSeconds = 60;
 	bool enableSpawnSafety = true;
 	float spawnSafetyMinPlayerDistance = 12;
 	float spawnSafetyMinEnemyDistance = 35;
@@ -53,7 +59,7 @@ class DAFDMSettings
 	bool enableLowPopWarmup = true;
 	int warmupPlayerThreshold = 1;
 	int warmupActivateDelaySeconds = 30;
-	int warmupTickSeconds = 5;
+	int warmupTickSeconds = 1;
 	int warmupInfectedTargetCount = 8;
 	string warmupInfectedType = "ZmbM_CitizenASkinny_Brown";
 	float warmupInfectedMinSpawnDistance = 20;
@@ -121,6 +127,12 @@ class DAFDMSettings
 		if (deathDropCleanupSeconds < 1)
 			deathDropCleanupSeconds = 60;
 
+		if (voteMinimumPlayers < 1)
+			voteMinimumPlayers = 2;
+
+		if (voteDurationSeconds < 1)
+			voteDurationSeconds = 60;
+
 		if (spawnSafetyMinPlayerDistance < 0)
 			spawnSafetyMinPlayerDistance = 0;
 
@@ -140,7 +152,7 @@ class DAFDMSettings
 			warmupActivateDelaySeconds = 30;
 
 		if (warmupTickSeconds < 1)
-			warmupTickSeconds = 5;
+			warmupTickSeconds = 1;
 
 		if (warmupInfectedTargetCount < 0)
 			warmupInfectedTargetCount = 0;

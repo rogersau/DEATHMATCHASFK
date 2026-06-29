@@ -201,9 +201,10 @@ function New-LoadoutEntry([string] $Name, $PrimaryWeapons, $SecondaryWeapons, $O
         primaryWeapons = @(Convert-WeaponPools $PrimaryWeapons "$Name-primary")
         secondaryWeapons = @(Convert-WeaponPools $SecondaryWeapons "$Name-secondary")
         items = @(
-            [ordered] @{ type = "BandageDressing"; quickbarSlot = 2 },
+            [ordered] @{ type = "CombatKnife"; quickbarSlot = 2 },
             [ordered] @{ type = "Morphine"; quickbarSlot = 3 },
-            [ordered] @{ type = "SalineBagIV"; quickbarSlot = 4 }
+            [ordered] @{ type = "BandageDressing"; quickbarSlot = 4 },
+            [ordered] @{ type = "SalineBagIV"; quickbarSlot = 5 }
         )
     }
 }
@@ -323,6 +324,16 @@ foreach ($arenaName in $arenasByName.Keys) {
     }
 }
 
+$voteMinimumPlayers = [int] $settings.voteMinimumPlayers
+if ($voteMinimumPlayers -lt 1) {
+    $voteMinimumPlayers = 2
+}
+
+$voteDurationSeconds = ([int] $settings.voteMinutes) * 60
+if ($voteDurationSeconds -lt 1) {
+    $voteDurationSeconds = 60
+}
+
 $loadoutPools = @()
 $loadoutPools += [ordered] @{
     name = "normal"
@@ -369,6 +380,12 @@ $standaloneSettings = [ordered] @{
     discordServerEventsWebhookUrl = ""
     discordServerName = ""
     discordSuppressEmbeds = $false
+    enableVoting = $true
+    enableEndRoundVote = $true
+    enableArenaVote = $true
+    enableRoundTypeVote = $true
+    voteMinimumPlayers = $voteMinimumPlayers
+    voteDurationSeconds = $voteDurationSeconds
     arenaRotation = @($arenaRotation)
     excludedArenas = @($excluded)
     admins = @(Convert-AdminIds $settings.admins)

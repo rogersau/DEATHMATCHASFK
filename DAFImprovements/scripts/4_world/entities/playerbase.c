@@ -42,6 +42,9 @@ modded class PlayerBase extends ManBase
 	private static ref KillFeedHandle s_KillHandle;
 	private static int s_DAF_PendingRoundSeconds = -1;
 	private static string s_DAF_PendingRoundLabel = "";
+	private static int s_DAF_PendingPlayerCount = -1;
+	private static string s_DAF_PendingPlayerCountStatus = "";
+	private static bool s_DAFDM_ManualRespawnAllowed = false;
 	protected ref array<ref DAF_ItemDamageSnapshot> m_DAF_ItemDamageSnapshots;
 	private bool m_DAF_IsFallDeath;
 	private bool m_DAF_IsHeadshot;
@@ -464,6 +467,20 @@ modded class PlayerBase extends ManBase
 				if (s_KillFeed)
 					s_KillFeed.SetRoundLabel(roundLabelData.param1);
 			}
+			else if (rpc_type == -74700012)
+			{
+				Param5<int, string, int, string, bool> stateData;
+				if (!ctx.Read(stateData))
+					return;
+
+				s_DAF_PendingRoundSeconds = stateData.param1;
+				s_DAF_PendingRoundLabel = stateData.param2;
+				s_DAF_PendingPlayerCount = stateData.param3;
+				s_DAF_PendingPlayerCountStatus = stateData.param4;
+				s_DAFDM_ManualRespawnAllowed = stateData.param5;
+
+				DAF_ApplyPendingRoundHud();
+			}
 		}
 	}
 
@@ -472,11 +489,16 @@ modded class PlayerBase extends ManBase
 		if (!s_KillFeed)
 			return;
 
-		if (s_DAF_PendingRoundLabel != "")
-			s_KillFeed.SetRoundLabel(s_DAF_PendingRoundLabel);
+		s_KillFeed.SetRoundLabel(s_DAF_PendingRoundLabel);
+		s_KillFeed.SetRoundTimeRemaining(s_DAF_PendingRoundSeconds);
 
-		if (s_DAF_PendingRoundSeconds >= 0)
-			s_KillFeed.SetRoundTimeRemaining(s_DAF_PendingRoundSeconds);
+		if (s_DAF_PendingPlayerCount >= 0)
+			s_KillFeed.SetPlayerCountStatus(s_DAF_PendingPlayerCount, s_DAF_PendingPlayerCountStatus);
+	}
+
+	bool DAFDM_IsManualRespawnAllowed()
+	{
+		return s_DAFDM_ManualRespawnAllowed;
 	}
 
 	static void DAF_RecreateKillFeedHud()

@@ -2,6 +2,7 @@ param(
     [int] $Port = 2543,
     [switch] $Repack,
     [switch] $ConvertConfig,
+    [bool] $EnableDebugCommands = $true,
     [switch] $NoStart,
     [switch] $NoPause
 )
@@ -107,6 +108,15 @@ function Ensure-LocalBattleEyeDisabled {
 	Set-Content -LiteralPath $Config -Value $Content -Encoding ASCII
 }
 
+function Set-LocalDebugCommands {
+	param([Parameter(Mandatory)] [string] $SettingsPath)
+
+	Assert-Path $SettingsPath "Standalone settings.json"
+	$Settings = Get-Content -LiteralPath $SettingsPath -Raw | ConvertFrom-Json
+	$Settings | Add-Member -NotePropertyName "enableAdminTestCommands" -NotePropertyValue ([bool] $EnableDebugCommands) -Force
+	$Settings | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $SettingsPath -Encoding UTF8
+}
+
 Assert-Path $ServerExe "DayZ server executable"
 Assert-Path $StandaloneInit "Standalone deathmatch.namalsk init.c"
 Ensure-LocalBattleEyeDisabled
@@ -140,6 +150,7 @@ Ensure-Directory (Join-Path $Profile "DAFDeathmatch")
 foreach ($FileName in @("settings.json", "arenas.json", "loadouts.json")) {
     Copy-Item -LiteralPath (Join-Path $ConvertedConfig $FileName) -Destination (Join-Path $Profile "DAFDeathmatch\$FileName") -Force
 }
+Set-LocalDebugCommands (Join-Path $Profile "DAFDeathmatch\settings.json")
 
 $ModList = @(
     Join-Path $ServerTest "@NamalskIsland"
@@ -164,6 +175,7 @@ Write-Host "Prepared DAF standalone Namalsk test server." -ForegroundColor Cyan
 Write-Host "Profile: $Profile"
 Write-Host "Mission: $ServerMission"
 Write-Host "Port: $Port"
+Write-Host "Debug commands: $EnableDebugCommands"
 Write-Host ""
 
 if ($NoStart) {

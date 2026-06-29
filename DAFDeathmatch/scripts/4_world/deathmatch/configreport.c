@@ -10,6 +10,7 @@ class DAFDMConfigReport
 		PrintFormat("DAFDeathmatch: config report (%1): roundTypes=%2 weights=%3 arenas=%4 enabledArenas=%5 excludedArenas=%6 loadoutPools=%7 warnings=%8", source, CountRoundTypes(settings), BuildRoundWeightSummary(settings), CountArenas(arenas), CountEnabledArenas(settings, arenas), CountExcludedArenas(settings), CountLoadoutPools(loadouts), warningCount);
 		PrintFormat("DAFDeathmatch: config flags (%1): autoRespawn=%2 playerRespawnCommand=%3 adminTestCommands=%4 spawnSafety=%5 tdmOutfitEnforcement=%6 lowPopWarmup=%7 weaponJamDisabled=1", source, settings.autoRespawn, settings.enablePlayerRespawnCommand, settings.enableAdminTestCommands, settings.enableSpawnSafety, settings.enforceTDMTeamOutfits, settings.enableLowPopWarmup);
 		PrintFormat("DAFDeathmatch: discord flags (%1): killfeed=%2 url=%3 serverEvents=%4 url=%5 serverName=%6 suppressEmbeds=%7", source, settings.enableDiscordKillfeed, FormatDiscordUrlState(settings.enableDiscordKillfeed, settings.discordKillfeedWebhookUrl), settings.enableDiscordServerEvents, FormatDiscordUrlState(settings.enableDiscordServerEvents, settings.discordServerEventsWebhookUrl), settings.discordServerName, settings.discordSuppressEmbeds);
+		PrintFormat("DAFDeathmatch: voting flags (%1): enabled=%2 endRound=%3 arena=%4 roundType=%5 minPlayers=%6 durationSeconds=%7", source, settings.enableVoting, settings.enableEndRoundVote, settings.enableArenaVote, settings.enableRoundTypeVote, settings.voteMinimumPlayers, settings.voteDurationSeconds);
 	}
 
 	static int Validate(DAFDMSettings settings, DAFDMArenaRegistry arenas, DAFDMLoadoutRegistry loadouts)
@@ -91,8 +92,27 @@ class DAFDMConfigReport
 		if (hasTDMRound)
 			warnings += ValidateTDMSettings(settings);
 
+		warnings += ValidateVotingSettings(settings);
 		warnings += ValidateWarmupSettings(settings);
 		warnings += ValidateDiscordSettings(settings);
+
+		return warnings;
+	}
+
+	private static int ValidateVotingSettings(DAFDMSettings settings)
+	{
+		if (!settings || !settings.enableVoting)
+			return 0;
+
+		int warnings = 0;
+		if (settings.voteMinimumPlayers < 1)
+			warnings += Warn("voting minimum player count is below one");
+
+		if (settings.voteDurationSeconds < 1)
+			warnings += Warn("voting duration is below one second");
+
+		if (!settings.enableEndRoundVote && !settings.enableArenaVote && !settings.enableRoundTypeVote)
+			warnings += Warn("voting is enabled but all vote target types are disabled");
 
 		return warnings;
 	}

@@ -230,9 +230,10 @@ class DAFDMLoadoutRegistry
 		entry.outfit.Insert(MakeChoices("BDUPants"));
 		entry.outfit.Insert(MakeChoices("AthleticShoes_Black"));
 		entry.outfit.Insert(MakeChoices("PressVest_Blue"));
-		entry.items.Insert(MakeItem("BandageDressing", 2));
+		entry.items.Insert(MakeItem("CombatKnife", 2));
 		entry.items.Insert(MakeItem("Morphine", 3));
-		entry.items.Insert(MakeItem("SalineBagIV", 4));
+		entry.items.Insert(MakeItem("BandageDressing", 4));
+		entry.items.Insert(MakeItem("SalineBagIV", 5));
 		pool.entries.Insert(entry);
 		return pool;
 	}

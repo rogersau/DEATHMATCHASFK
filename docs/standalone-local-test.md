@@ -10,6 +10,16 @@ Close any running DayZ server first, then run:
 .\Start-StandaloneNamalskTest.ps1 -Repack -ConvertConfig
 ```
 
+For an automated startup E2E check, run:
+
+```powershell
+.\Invoke-StandaloneE2ETest.ps1 -Repack -ConvertConfig
+```
+
+The E2E script prepares the local standalone server, starts it hidden, waits for the `DAFDeathmatch` startup markers in the script log, fails on script compile/runtime error markers, reports config-warning counts, then stops the server it started. Use `-StartClient -NoBattleEyeClient -ManualTimeoutSeconds 300` when you want the same checked boot plus a five-minute manual client window.
+
+Local debug/admin test commands are enabled by default by both start scripts. Use `-EnableDebugCommands:$false` for a production-like local run where `@spawndummy`, `@cleardummies`, and `@testdrop` are disabled.
+
 The launcher prepares:
 
 - local Namalsk workshop junctions
@@ -47,6 +57,12 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 @inspect
 @spawnreport
 @shuffleteams
+@endvote
+@arenavote Lubjansk
+@roundvote snipers
+@eventvote juiced
+@vote 1
+@vote 2
 @spawndummy
 @cleardummies
 @testdrop
@@ -61,6 +77,8 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 `@forcearena`, `@forcenext`, `@forcetdm`, `@spawnreport`, and `@shuffleteams` are admin test helpers. Explicitly forced arenas can include arenas excluded from normal rotation, which is useful for checking old problem arenas without putting them back into live selection. `@forcetdm <type> [arena]` overrides only the next round's mode; it does not rewrite the configured round type.
 
 `@spawnreport` explains the current arena's spawn-safety pick for you: chosen spawn index, whether the pick is a fallback, nearby player/enemy counts, view-cone threats, nearest player/enemy distance, and active thresholds.
+
+Voting is enabled by default and follows the Zamboni-style command shape: one active vote at a time, `@vote 1` for yes, and `@vote 2` for no. `@endvote` ends the current round if it passes. `@arenavote <arena>` and `@roundvote <type>` set the next arena or round type if they pass; `@eventvote <type>` is a familiar alias for round-type voting. Voting does not expose TDM directly; players can only vote for configured round types.
 
 `@spawndummy`, `@cleardummies`, and `@testdrop` require admin access and `enableAdminTestCommands = true` in `settings.json`. `@respawn` is admin-only unless `enablePlayerRespawnCommand = true`.
 
@@ -87,12 +105,14 @@ TDM is enabled per round type by setting that round type's `gameMode` to `tdm`; 
 
 TDM enforces team clothing by default: red team gets red tracksuit jacket/pants, red sneaker-style shoes, red bandana face covering, and red armband; blue team gets the blue equivalents. The item class names are configurable in `settings.json`.
 
-Low-pop warmup is enabled by default. With one real player connected, warmup activates after `warmupActivateDelaySeconds` seconds, defaulting to 30. The player count HUD should show `(Warmup Mode)`, warmup infected should keep respawning near the active arena, infected should not damage the player, and spare magazines should refill while the loaded magazine still has to be reloaded normally. Warmup turns off immediately when a second real player joins.
+Low-pop warmup is enabled by default. With one real player connected, warmup activates after `warmupActivateDelaySeconds` seconds, defaulting to 30. The player count HUD should show `Warmup Mode`, warmup infected should keep respawning near the active arena, infected should not damage the player, and spare magazines should refill while the loaded magazine still has to be reloaded normally. Warmup turns off immediately when a second real player joins.
 
 ## Smoke Checklist
 
 - Clothes spawn.
+- Hotbar is `1` primary weapon, `2` secondary weapon, `3` knife, `4` morphine, `5` bandage, `6` saline.
 - Script log shows a `DAFDeathmatch: config report` and `DAFDeathmatch: config flags` line on startup.
+- Script log shows a `DAFDeathmatch: voting flags` line on startup.
 - First spawn appears directly in the current arena without a visible wrong-position flash.
 - New spawns avoid close enemies and enemies looking directly at the spawn where the arena has safer alternatives.
 - Weapon spawns in normal, snipers, freshies, and juiced rounds.
@@ -106,9 +126,11 @@ Low-pop warmup is enabled by default. With one real player connected, warmup act
 - `@endround` starts a clean next round.
 - `@forcenext snipers <arena>` starts a predictable sniper test round.
 - `@forcetdm normal <arena>` starts a predictable TDM test round without editing config.
+- With two real players, `@endvote` starts a vote, duplicate `@vote` attempts are rejected, and a yes majority ends the current round.
+- With two real players, `@arenavote <arena>` and `@roundvote <type>` pass without ending the current round, then apply to the next round.
 - `@teams` shows current team assignment counts and team score during TDM.
 - TDM players spawn with matching red/blue tracksuits, shoes, bandana face coverings, and armbands even when the loadout pool would normally roll different clothing.
-- With one real player connected for 30 seconds, the player count HUD shows `(Warmup Mode)`.
+- With one real player connected for 30 seconds, the player count HUD shows `Warmup Mode`.
 - Warmup infected spawn near the arena, move slower than normal, respawn after being killed, and cannot damage the player.
 - During warmup, spare magazines refill but the currently loaded magazine still runs down and requires reloading.
 - When a second real player joins, warmup status clears and warmup infected are deleted.
