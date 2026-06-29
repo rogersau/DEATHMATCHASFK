@@ -18,9 +18,8 @@
  *   - Assignment is idempotent: a player keeps their first-assigned team until
  *     the round resets or Shuffle is called.
  *
- * Inventory outfit enforcement (ApplyTeamOutfit) stays in the manager because
- * it is loadout-mutation logic that merely consumes team state; it will move
- * with the loadout-engine slice.
+ * Inventory outfit enforcement belongs to the loadout engine because it is
+ * loadout-mutation logic that merely consumes team state.
  */
 class DAFDMTeams
 {

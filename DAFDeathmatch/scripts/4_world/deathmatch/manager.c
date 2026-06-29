@@ -1,5 +1,32 @@
 class DAFDeathmatch
 {
+	private static const int COMMAND_HELP = 1;
+	private static const int COMMAND_PLAYERS = 2;
+	private static const int COMMAND_TIMELEFT = 3;
+	private static const int COMMAND_SCORE = 4;
+	private static const int COMMAND_STATUS = 5;
+	private static const int COMMAND_TEAMS = 6;
+	private static const int COMMAND_INSPECT = 7;
+	private static const int COMMAND_SPAWNREPORT = 8;
+	private static const int COMMAND_AUTORESPAWN = 9;
+	private static const int COMMAND_ENDVOTE = 10;
+	private static const int COMMAND_ARENAVOTE = 11;
+	private static const int COMMAND_ROUNDVOTE = 12;
+	private static const int COMMAND_VOTE = 13;
+	private static const int COMMAND_RESPAWN = 14;
+	private static const int COMMAND_VERSION = 15;
+	private static const int COMMAND_ENDROUND = 16;
+	private static const int COMMAND_FORCEROUND = 17;
+	private static const int COMMAND_FORCEARENA = 18;
+	private static const int COMMAND_FORCENEXT = 19;
+	private static const int COMMAND_FORCETDM = 20;
+	private static const int COMMAND_SHUFFLETEAMS = 21;
+	private static const int COMMAND_SPAWNDUMMY = 22;
+	private static const int COMMAND_CLEARDUMMIES = 23;
+	private static const int COMMAND_TESTDROP = 24;
+	private static const int COMMAND_RELOADCONFIG = 25;
+	private static const int COMMAND_DISCORDTEST = 26;
+
 	private ref DAFDMSettings m_Settings;
 	private ref DAFDMArenaRegistry m_Arenas;
 	private ref DAFDMLoadoutRegistry m_Loadouts;
@@ -14,18 +41,16 @@ class DAFDeathmatch
 	private string m_ForcedGameMode;
 	private bool m_RoundActive;
 	private ref map<string, bool> m_AutoRespawnOverrides;
-	private ref map<string, string> m_LastLoadoutByPlayer;
+	private ref DAFDMLoadoutEngine m_LoadoutEngine;
 	private ref DAFDMTeams m_Teams;
 	private ref DAFDMSpawnSafety m_SpawnSafety;
 	private ref array<Object> m_RoundObjects;
 	private ref array<PlayerBase> m_TestDummies;
 	private ref DAFDMDeathFlow m_DeathFlow;
-	private bool m_WarmupActive;
-	private bool m_WarmupTickStarted;
-	private int m_WarmupActivationDueTime;
-	private ref array<ZombieBase> m_WarmupInfected;
+	private ref DAFDMLowPopWarmup m_Warmup;
 	private ref DAFDMDiscord m_Discord;
 	private ref DAFDMVoteManager m_Votes;
+	private ref map<string, int> m_CommandRoutes;
 	private bool m_VoteTickStarted;
 
 	void DAFDeathmatch()
@@ -47,25 +72,24 @@ class DAFDeathmatch
 		m_ForcedArenaName = "";
 		m_ForcedGameMode = "";
 		m_AutoRespawnOverrides = new map<string, bool>();
-		m_LastLoadoutByPlayer = new map<string, string>();
 		m_Teams = new DAFDMTeams(m_Settings);
+		m_LoadoutEngine = new DAFDMLoadoutEngine(m_Settings, m_Loadouts, m_Teams);
 		m_SpawnSafety = new DAFDMSpawnSafety(m_Settings, m_Teams);
 		m_RoundObjects = new array<Object>();
 		m_TestDummies = new array<PlayerBase>();
 		m_DeathFlow = new DAFDMDeathFlow(m_Settings.corpseCleanupSeconds, m_Settings.deathDropCleanupSeconds);
-		m_WarmupActive = false;
-		m_WarmupTickStarted = false;
-		m_WarmupActivationDueTime = 0;
-		m_WarmupInfected = new array<ZombieBase>();
+		m_Warmup = new DAFDMLowPopWarmup(m_Settings);
 		m_Discord = new DAFDMDiscord();
 		m_Votes = new DAFDMVoteManager();
+		m_CommandRoutes = new map<string, int>();
+		RegisterCommandRoutes();
 		m_VoteTickStarted = false;
 	}
 
 	void Start()
 	{
 		EnsureRoundReady();
-		StartWarmupTick();
+		m_Warmup.StartTick(this);
 		StartVoteTick();
 		EvaluateWarmupState("start");
 		m_Discord.PostServerReady(m_Settings);
@@ -271,153 +295,124 @@ class DAFDeathmatch
 
 	void HandleCommand(PlayerBase source, string command, string args)
 	{
-		if (command == "help")
+		int route;
+		if (!m_CommandRoutes.Find(command, route))
 		{
+			DAFDMChat.MessagePlayer(source, "Invalid command: " + command);
+			return;
+		}
+
+		switch (route)
+		{
+		case COMMAND_HELP:
 			SendHelp(source);
-		}
-		else if (command == "players")
-		{
+			break;
+		case COMMAND_PLAYERS:
 			DAFDMChat.MessagePlayer(source, string.Format("Players: %1", GetPlayerCount()));
-		}
-		else if (command == "timeleft")
-		{
+			break;
+		case COMMAND_TIMELEFT:
 			DAFDMChat.MessagePlayer(source, "Time remaining: " + DAFDMRoundTimer.GetRemainingText());
-		}
-		else if (command == "score")
-		{
-			PlayerIdentity identity = source.GetIdentity();
-			if (IsTeamRound())
-			{
-				string team = m_Teams.GetTeam(identity, m_CurrentGameMode);
-				DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D | Team: %3 %4", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), team, m_Scoreboard.GetTeamScore(team)));
-			}
-			else
-			{
-				DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity)));
-			}
-		}
-		else if (command == "status")
-		{
+			break;
+		case COMMAND_SCORE:
+			SendScore(source);
+			break;
+		case COMMAND_STATUS:
 			SendStatus(source);
-		}
-		else if (command == "teams")
-		{
+			break;
+		case COMMAND_TEAMS:
 			SendTeams(source);
-		}
-		else if (command == "inspect")
-		{
+			break;
+		case COMMAND_INSPECT:
 			SendInspect(source);
-		}
-		else if (command == "spawnreport")
-		{
+			break;
+		case COMMAND_SPAWNREPORT:
 			if (!RequireAdmin(source))
 				return;
 
 			SendSpawnReport(source);
-		}
-		else if (command == "autorespawn")
-		{
+			break;
+		case COMMAND_AUTORESPAWN:
 			ToggleAutoRespawn(source);
-		}
-		else if (command == "endvote")
-		{
+			break;
+		case COMMAND_ENDVOTE:
 			StartEndRoundVote(source);
-		}
-		else if (command == "arenavote")
-		{
+			break;
+		case COMMAND_ARENAVOTE:
 			StartArenaVote(source, args);
-		}
-		else if (command == "roundvote")
-		{
+			break;
+		case COMMAND_ROUNDVOTE:
 			StartRoundTypeVote(source, args);
-		}
-		else if (command == "eventvote")
-		{
-			StartRoundTypeVote(source, args);
-		}
-		else if (command == "vote")
-		{
+			break;
+		case COMMAND_VOTE:
 			CastVote(source, args);
-		}
-		else if (command == "respawn")
-		{
+			break;
+		case COMMAND_RESPAWN:
 			if (!CanUseRespawnCommand(source))
 				return;
 
 			RespawnPlayer(source);
 			DAFDMChat.MessagePlayer(source, "Respawned");
-		}
-		else if (command == "version")
-		{
+			break;
+		case COMMAND_VERSION:
 			DAFDMChat.MessagePlayer(source, m_Settings.version);
-		}
-		else if (command == "endround")
-		{
+			break;
+		case COMMAND_ENDROUND:
 			if (!RequireAdmin(source))
 				return;
 
 			DAFDMChat.Announce("Admin ended the round");
 			EndRound();
-		}
-		else if (command == "forceround")
-		{
+			break;
+		case COMMAND_FORCEROUND:
 			if (!RequireAdmin(source))
 				return;
 
 			ForceRound(source, args);
-		}
-		else if (command == "forcearena")
-		{
+			break;
+		case COMMAND_FORCEARENA:
 			if (!RequireAdmin(source))
 				return;
 
 			ForceArena(source, args);
-		}
-		else if (command == "forcenext")
-		{
+			break;
+		case COMMAND_FORCENEXT:
 			if (!RequireAdmin(source))
 				return;
 
 			ForceNext(source, args);
-		}
-		else if (command == "forcetdm")
-		{
+			break;
+		case COMMAND_FORCETDM:
 			if (!RequireAdmin(source))
 				return;
 
 			ForceTeamDeathmatch(source, args);
-		}
-		else if (command == "shuffleteams")
-		{
+			break;
+		case COMMAND_SHUFFLETEAMS:
 			if (!RequireAdmin(source))
 				return;
 
 			ShuffleTeams(source);
-		}
-		else if (command == "spawndummy")
-		{
+			break;
+		case COMMAND_SPAWNDUMMY:
 			if (!RequireAdminTestCommand(source))
 				return;
 
 			SpawnTestDummy(source);
-		}
-		else if (command == "cleardummies")
-		{
+			break;
+		case COMMAND_CLEARDUMMIES:
 			if (!RequireAdminTestCommand(source))
 				return;
 
 			ClearTestDummies();
 			DAFDMChat.MessagePlayer(source, "Cleared test dummies");
-		}
-		else if (command == "testdrop")
-		{
+			break;
+		case COMMAND_TESTDROP:
 			if (!RequireAdminTestCommand(source))
 				return;
 
 			SpawnTestDrop(source, args);
-		}
-		else if (command == "reloadconfig")
-		{
+			break;
+		case COMMAND_RELOADCONFIG:
 			if (!RequireAdmin(source))
 				return;
 
@@ -428,18 +423,60 @@ class DAFDeathmatch
 			EvaluateWarmupState("reloadconfig");
 			CancelVoteIfDisabled();
 			DAFDMChat.MessagePlayer(source, "Config reloaded for future rounds");
-		}
-		else if (command == "discordtest")
-		{
+			break;
+		case COMMAND_DISCORDTEST:
 			if (!RequireAdmin(source))
 				return;
 
 			DiscordTest(source, args);
-		}
-		else
-		{
+			break;
+		default:
 			DAFDMChat.MessagePlayer(source, "Invalid command: " + command);
 		}
+	}
+
+	void RegisterCommandRoutes()
+	{
+		m_CommandRoutes.Set("help", COMMAND_HELP);
+		m_CommandRoutes.Set("players", COMMAND_PLAYERS);
+		m_CommandRoutes.Set("timeleft", COMMAND_TIMELEFT);
+		m_CommandRoutes.Set("score", COMMAND_SCORE);
+		m_CommandRoutes.Set("status", COMMAND_STATUS);
+		m_CommandRoutes.Set("teams", COMMAND_TEAMS);
+		m_CommandRoutes.Set("inspect", COMMAND_INSPECT);
+		m_CommandRoutes.Set("spawnreport", COMMAND_SPAWNREPORT);
+		m_CommandRoutes.Set("autorespawn", COMMAND_AUTORESPAWN);
+		m_CommandRoutes.Set("endvote", COMMAND_ENDVOTE);
+		m_CommandRoutes.Set("arenavote", COMMAND_ARENAVOTE);
+		m_CommandRoutes.Set("roundvote", COMMAND_ROUNDVOTE);
+		m_CommandRoutes.Set("eventvote", COMMAND_ROUNDVOTE);
+		m_CommandRoutes.Set("vote", COMMAND_VOTE);
+		m_CommandRoutes.Set("respawn", COMMAND_RESPAWN);
+		m_CommandRoutes.Set("version", COMMAND_VERSION);
+		m_CommandRoutes.Set("endround", COMMAND_ENDROUND);
+		m_CommandRoutes.Set("forceround", COMMAND_FORCEROUND);
+		m_CommandRoutes.Set("forcearena", COMMAND_FORCEARENA);
+		m_CommandRoutes.Set("forcenext", COMMAND_FORCENEXT);
+		m_CommandRoutes.Set("forcetdm", COMMAND_FORCETDM);
+		m_CommandRoutes.Set("shuffleteams", COMMAND_SHUFFLETEAMS);
+		m_CommandRoutes.Set("spawndummy", COMMAND_SPAWNDUMMY);
+		m_CommandRoutes.Set("cleardummies", COMMAND_CLEARDUMMIES);
+		m_CommandRoutes.Set("testdrop", COMMAND_TESTDROP);
+		m_CommandRoutes.Set("reloadconfig", COMMAND_RELOADCONFIG);
+		m_CommandRoutes.Set("discordtest", COMMAND_DISCORDTEST);
+	}
+
+	void SendScore(PlayerBase source)
+	{
+		PlayerIdentity identity = source.GetIdentity();
+		if (IsTeamRound())
+		{
+			string team = m_Teams.GetTeam(identity, m_CurrentGameMode);
+			DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D | Team: %3 %4", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), team, m_Scoreboard.GetTeamScore(team)));
+			return;
+		}
+
+		DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity)));
 	}
 
 	void SendHelp(PlayerBase source)
@@ -565,7 +602,7 @@ class DAFDeathmatch
 			arenaName = m_CurrentArena.GetName();
 
 		string warmup = "";
-		if (m_WarmupActive)
+		if (m_Warmup.IsActive())
 			warmup = " | Warmup Mode";
 
 		if (IsTeamRound())
@@ -606,7 +643,7 @@ class DAFDeathmatch
 
 		string loadoutName = "none";
 		if (playerId != "")
-			m_LastLoadoutByPlayer.Find(playerId, loadoutName);
+			loadoutName = m_LoadoutEngine.GetLastLoadoutName(playerId);
 
 		string handsType = "none";
 		if (source)
@@ -627,7 +664,7 @@ class DAFDeathmatch
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 mode=%2 team=%3 arena=%4 pool=%5 loadout=%6 hands=%7", GetRoundDisplayName(), mode, team, arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: dummies=%1 drops=%2 corpses=%3 dropTtl=%4s corpseTtl=%5s", GetActiveTestDummyCount(), m_DeathFlow.GetActiveDeathDropCount(), m_DeathFlow.GetPendingCorpseCleanupCount(), m_Settings.deathDropCleanupSeconds, m_Settings.corpseCleanupSeconds));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: spawnSafety=%1 minPlayer=%2m minEnemy=%3m view=%4m angle=%5deg", m_Settings.enableSpawnSafety, m_Settings.spawnSafetyMinPlayerDistance, m_Settings.spawnSafetyMinEnemyDistance, m_Settings.spawnSafetyEnemyViewDistance, m_Settings.spawnSafetyEnemyViewAngleDegrees));
-		DAFDMChat.MessagePlayer(source, string.Format("Inspect: warmup=%1 pending=%2 infected=%3 threshold=%4 delay=%5s", m_WarmupActive, IsWarmupPending(), GetActiveWarmupInfectedCount(), m_Settings.warmupPlayerThreshold, m_Settings.warmupActivateDelaySeconds));
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: warmup=%1 pending=%2 infected=%3 threshold=%4 delay=%5s", m_Warmup.IsActive(), m_Warmup.IsPending(), m_Warmup.GetActiveInfectedCount(), m_Settings.warmupPlayerThreshold, m_Settings.warmupActivateDelaySeconds));
 		DAFDMChat.MessagePlayer(source, "Inspect: " + m_Votes.GetActiveSummary());
 	}
 
@@ -1233,380 +1270,7 @@ class DAFDeathmatch
 
 	void EquipPlayer(PlayerBase player)
 	{
-		if (!player)
-			return;
-
-		ClearPlayerInventory(player);
-		HumanInventory inventory = player.GetHumanInventory();
-		DAFDMLoadoutEntryConfig loadout = PickLoadoutForPlayer(player);
-		if (!loadout)
-		{
-			PrintFormat("DAFDeathmatch: no loadout found for pool %1", GetRoundLoadoutPool());
-			return;
-		}
-
-		CreateOutfit(inventory, loadout);
-		ApplyTeamOutfit(player);
-		RepairPlayerAttachments(player);
-		EntityAI primary = CreateLoadoutWeapon(player, inventory, loadout.primary, true);
-		if (!primary)
-			primary = CreateEmergencyPrimary(player, inventory);
-
-		EntityAI secondary = CreateLoadoutWeapon(player, inventory, loadout.secondary, false);
-
-		foreach (DAFDMLoadoutItemConfig itemConfig: loadout.items)
-		{
-			if (!itemConfig || itemConfig.type == "")
-				continue;
-
-			EntityAI item = inventory.CreateInInventory(itemConfig.type);
-			if (item && itemConfig.quickbarSlot >= 0)
-				player.SetQuickBarEntityShortcut(item, itemConfig.quickbarSlot, true);
-		}
-
-		NormalizeLoadoutHotbar(player, primary, secondary);
-	}
-
-	void NormalizeLoadoutHotbar(PlayerBase player, EntityAI primary, EntityAI secondary)
-	{
-		if (!player)
-			return;
-
-		if (primary)
-			player.SetQuickBarEntityShortcut(primary, 0, true);
-
-		if (secondary)
-			player.SetQuickBarEntityShortcut(secondary, 1, true);
-
-		EntityAI knife = EnsureKnife(player);
-		EntityAI morphine = EnsureLoadoutItem(player, "Morphine", "morphine");
-		EntityAI bandage = EnsureLoadoutItem(player, "BandageDressing", "bandage");
-		EntityAI saline = EnsureLoadoutItem(player, "SalineBagIV", "saline");
-
-		if (knife)
-			player.SetQuickBarEntityShortcut(knife, 2, true);
-
-		if (morphine)
-			player.SetQuickBarEntityShortcut(morphine, 3, true);
-
-		if (bandage)
-			player.SetQuickBarEntityShortcut(bandage, 4, true);
-
-		if (saline)
-			player.SetQuickBarEntityShortcut(saline, 5, true);
-	}
-
-	EntityAI EnsureKnife(PlayerBase player)
-	{
-		TStringArray knifeTypes = new TStringArray();
-		knifeTypes.Insert("CombatKnife");
-		knifeTypes.Insert("HuntingKnife");
-		knifeTypes.Insert("KitchenKnife");
-		knifeTypes.Insert("SteakKnife");
-		knifeTypes.Insert("StoneKnife");
-		return EnsureLoadoutItemAny(player, knifeTypes, "knife");
-	}
-
-	EntityAI EnsureLoadoutItem(PlayerBase player, string type, string label)
-	{
-		TStringArray types = new TStringArray();
-		types.Insert(type);
-		return EnsureLoadoutItemAny(player, types, label);
-	}
-
-	EntityAI EnsureLoadoutItemAny(PlayerBase player, TStringArray types, string label)
-	{
-		EntityAI existing = FindInventoryItemAny(player, types);
-		if (existing)
-			return existing;
-
-		HumanInventory inventory = player.GetHumanInventory();
-		foreach (string type: types)
-		{
-			EntityAI created = inventory.CreateInInventory(type);
-			if (created)
-				return created;
-		}
-
-		PrintFormat("DAFDeathmatch: failed to create hotbar %1 item", label);
-		return null;
-	}
-
-	EntityAI FindInventoryItemAny(PlayerBase player, TStringArray types)
-	{
-		if (!player || !types)
-			return null;
-
-		array<EntityAI> items = new array<EntityAI>();
-		player.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
-
-		foreach (EntityAI item: items)
-		{
-			if (ItemMatchesAnyType(item, types))
-				return item;
-		}
-
-		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
-		if (ItemMatchesAnyType(inHands, types))
-			return inHands;
-
-		return null;
-	}
-
-	bool ItemMatchesAnyType(EntityAI item, TStringArray types)
-	{
-		if (!item || !types)
-			return false;
-
-		foreach (string type: types)
-		{
-			if (type != "" && item.IsKindOf(type))
-				return true;
-		}
-
-		return false;
-	}
-
-	void ApplyTeamOutfit(PlayerBase player)
-	{
-		if (!player || !IsTeamRound() || !m_Settings.enforceTDMTeamOutfits)
-			return;
-
-		string team = m_Teams.GetTeam(player.GetIdentity(), m_CurrentGameMode);
-		string jacket;
-		string pants;
-		string shoes;
-		string mask;
-		string armband;
-		GetTeamOutfitTypes(team, jacket, pants, shoes, mask, armband);
-		if (jacket == "" || pants == "" || shoes == "" || mask == "" || armband == "")
-			return;
-
-		ReplacePlayerAttachment(player, "Body", jacket);
-		ReplacePlayerAttachment(player, "Legs", pants);
-		ReplacePlayerAttachment(player, "Feet", shoes);
-		ReplacePlayerAttachment(player, "Mask", mask);
-		ReplacePlayerAttachment(player, "Armband", armband);
-	}
-
-	void GetTeamOutfitTypes(string team, out string jacket, out string pants, out string shoes, out string mask, out string armband)
-	{
-		jacket = "";
-		pants = "";
-		shoes = "";
-		mask = "";
-		armband = "";
-
-		team.ToLower();
-		if (team == "red")
-		{
-			jacket = m_Settings.tdmRedJacket;
-			pants = m_Settings.tdmRedPants;
-			shoes = m_Settings.tdmRedShoes;
-			mask = m_Settings.tdmRedMask;
-			armband = m_Settings.tdmRedArmband;
-			return;
-		}
-
-		if (team == "blue")
-		{
-			jacket = m_Settings.tdmBlueJacket;
-			pants = m_Settings.tdmBluePants;
-			shoes = m_Settings.tdmBlueShoes;
-			mask = m_Settings.tdmBlueMask;
-			armband = m_Settings.tdmBlueArmband;
-		}
-	}
-
-	void ReplacePlayerAttachment(PlayerBase player, string slotName, string itemType)
-	{
-		if (!player || itemType == "")
-			return;
-
-		EntityAI existing = player.FindAttachmentBySlotName(slotName);
-		if (existing)
-			GetGame().ObjectDelete(existing);
-
-		EntityAI created = player.GetInventory().CreateAttachment(itemType);
-		if (!created)
-			PrintFormat("DAFDeathmatch: failed to create TDM team outfit item slot=%1 type=%2", slotName, itemType);
-		else if (slotName == "Mask")
-			player.AdjustBandana(created, slotName);
-	}
-
-	void RepairPlayerAttachments(PlayerBase player)
-	{
-		if (!player)
-			return;
-
-		for (int i = 0; i < player.GetInventory().AttachmentCount(); i++)
-		{
-			EntityAI attachment = player.GetInventory().GetAttachmentFromIndex(i);
-			if (attachment)
-				RepairEntityDamage(attachment);
-		}
-	}
-
-	void RepairEntityDamage(EntityAI item)
-	{
-		if (!item)
-			return;
-
-		item.SetHealth("", "Health", item.GetMaxHealth("", "Health"));
-
-		array<string> zones = new array<string>();
-		item.GetDamageZones(zones);
-		foreach (string zone: zones)
-		{
-			item.SetHealth(zone, "Health", item.GetMaxHealth(zone, "Health"));
-		}
-	}
-
-	DAFDMLoadoutEntryConfig PickLoadoutForPlayer(PlayerBase player)
-	{
-		string id = "";
-		if (player.GetIdentity())
-			id = player.GetIdentity().GetId();
-
-		string lastEntry;
-		m_LastLoadoutByPlayer.Find(id, lastEntry);
-		DAFDMLoadoutEntryConfig loadout = m_Loadouts.PickEntry(GetRoundLoadoutPool(), lastEntry);
-		if (loadout)
-			m_LastLoadoutByPlayer.Set(id, loadout.name);
-
-		return loadout;
-	}
-
-	void CreateOutfit(HumanInventory inventory, DAFDMLoadoutEntryConfig loadout)
-	{
-		if (!inventory || !loadout)
-			return;
-
-		foreach (TStringArray choices: loadout.outfit)
-		{
-			if (!choices || choices.Count() == 0)
-				continue;
-
-			string itemType = choices.GetRandomElement();
-			if (itemType != "")
-				inventory.CreateInInventory(itemType);
-		}
-	}
-
-	EntityAI CreateLoadoutWeapon(PlayerBase player, HumanInventory inventory, DAFDMLoadoutWeaponConfig config, bool inHands)
-	{
-		if (!inventory || !config)
-			return null;
-
-		EntityAI weapon = TryCreateLoadoutWeapon(inventory, config.type, inHands);
-		if (!weapon && config.fallbackTypes)
-		{
-			foreach (string fallbackType: config.fallbackTypes)
-			{
-				weapon = TryCreateLoadoutWeapon(inventory, fallbackType, inHands);
-				if (weapon)
-					break;
-			}
-		}
-
-		if (!weapon)
-		{
-			PrintFormat("DAFDeathmatch: failed to create loadout weapon %1 with %2 fallbacks", config.type, config.fallbackTypes.Count());
-			return null;
-		}
-
-		foreach (string attachmentType: config.attachments)
-		{
-			EntityAI attachment = weapon.GetInventory().CreateAttachment(attachmentType);
-			if (attachment)
-				attachment.GetInventory().CreateAttachment("Battery9V");
-		}
-
-		Weapon_Base weaponBase = Weapon_Base.Cast(weapon);
-		foreach (string loadedMagazineType: config.loadedMagazines)
-		{
-			if (weaponBase)
-				weaponBase.SpawnAmmo(loadedMagazineType, Weapon_Base.SAMF_DEFAULT);
-		}
-
-		foreach (string spareMagazineType: config.spareMagazines)
-		{
-			inventory.CreateInInventory(spareMagazineType);
-		}
-
-		if (config.quickbarSlot >= 0)
-			player.SetQuickBarEntityShortcut(weapon, config.quickbarSlot, true);
-
-		return weapon;
-	}
-
-	EntityAI CreateEmergencyPrimary(PlayerBase player, HumanInventory inventory)
-	{
-		if (!player || !inventory)
-			return null;
-
-		TStringArray fallbackTypes = new TStringArray();
-		fallbackTypes.Insert("Winchester70");
-		fallbackTypes.Insert("Mosin9130");
-		fallbackTypes.Insert("M4A1");
-
-		foreach (string type: fallbackTypes)
-		{
-			EntityAI weapon = TryCreateLoadoutWeapon(inventory, type, true);
-			if (!weapon)
-				continue;
-
-			Weapon_Base weaponBase = Weapon_Base.Cast(weapon);
-			if (weaponBase)
-			{
-				if (type == "Mosin9130")
-					weaponBase.SpawnAmmo("Ammo_762x54", Weapon_Base.SAMF_DEFAULT);
-				else if (type == "M4A1")
-					weaponBase.SpawnAmmo("Mag_STANAG_30Rnd", Weapon_Base.SAMF_DEFAULT);
-				else
-					weaponBase.SpawnAmmo("Ammo_308Win", Weapon_Base.SAMF_DEFAULT);
-			}
-
-			player.SetQuickBarEntityShortcut(weapon, 0, true);
-			PrintFormat("DAFDeathmatch: created emergency primary weapon %1", weapon.GetType());
-			return weapon;
-		}
-
-		Print("DAFDeathmatch: failed to create emergency primary weapon");
-		return null;
-	}
-
-	void ClearPlayerInventory(PlayerBase player)
-	{
-		if (!player)
-			return;
-
-		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
-		if (inHands)
-		{
-			player.GetHumanInventory().DropEntity(InventoryMode.SERVER, player, inHands);
-			GetGame().ObjectDelete(inHands);
-		}
-
-		array<EntityAI> items = new array<EntityAI>();
-		player.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
-		for (int i = items.Count() - 1; i >= 0; i--)
-		{
-			EntityAI item = items[i];
-			if (item && item != inHands)
-				GetGame().ObjectDelete(item);
-		}
-	}
-
-	EntityAI TryCreateLoadoutWeapon(HumanInventory inventory, string type, bool inHands)
-	{
-		if (!inventory || type == "")
-			return null;
-
-		if (inHands)
-			return inventory.CreateInHands(type);
-
-		return inventory.CreateInInventory(type);
+		m_LoadoutEngine.EquipPlayer(player, GetRoundLoadoutPool(), m_CurrentGameMode);
 	}
 
 	DAFDMRoundTypeConfig PickRoundType()
@@ -1805,7 +1469,7 @@ class DAFDeathmatch
 
 	void CleanupRoundObjects()
 	{
-		CleanupWarmupInfected();
+		m_Warmup.Cleanup();
 		ClearTestDummies();
 		m_DeathFlow.CleanupAll();
 
@@ -1857,113 +1521,27 @@ class DAFDeathmatch
 		return count;
 	}
 
-	void StartWarmupTick()
-	{
-		if (m_WarmupTickStarted)
-			return;
-
-		m_WarmupTickStarted = true;
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.WarmupTick, m_Settings.warmupTickSeconds * 1000, true);
-	}
-
 	void WarmupTick()
 	{
-		EvaluateWarmupState("tick");
-		BroadcastWarmupHud();
-
-		if (!m_WarmupActive || !m_RoundActive || !m_CurrentArena)
-			return;
-
-		MaintainWarmupInfected();
-		RefillWarmupAmmo();
+		if (m_Warmup.Tick(GetPlayerCount(), m_RoundActive, m_CurrentArena, GetWarmupIgnorePlayerIds(), "tick"))
+			BroadcastClientState();
 	}
 
 	void EvaluateWarmupState(string source)
 	{
-		int playerCount = GetPlayerCount();
-		bool shouldWarmup = m_Settings.enableLowPopWarmup && playerCount > 0 && playerCount <= m_Settings.warmupPlayerThreshold;
-		if (!shouldWarmup)
-		{
-			m_WarmupActivationDueTime = 0;
-			if (m_WarmupActive)
-				DeactivateWarmup(source, playerCount);
-			else
-				BroadcastWarmupHud();
-
-			return;
-		}
-
-		if (m_WarmupActive)
-		{
-			BroadcastWarmupHud();
-			return;
-		}
-
-		int now = GetGame().GetTime();
-		if (m_WarmupActivationDueTime <= 0)
-		{
-			m_WarmupActivationDueTime = now + (m_Settings.warmupActivateDelaySeconds * 1000);
-			PrintFormat("DAFDeathmatch: low-pop warmup pending source=%1 players=%2 delay=%3s", source, playerCount, m_Settings.warmupActivateDelaySeconds);
-		}
-
-		if (now >= m_WarmupActivationDueTime)
-			ActivateWarmup(source, playerCount);
-	}
-
-	void ActivateWarmup(string source, int playerCount)
-	{
-		if (m_WarmupActive)
-			return;
-
-		m_WarmupActive = true;
-		m_WarmupActivationDueTime = 0;
-		PrintFormat("DAFDeathmatch: low-pop warmup activated source=%1 players=%2 threshold=%3", source, playerCount, m_Settings.warmupPlayerThreshold);
-		BroadcastWarmupHud();
-		MaintainWarmupInfected();
-		RefillWarmupAmmo();
-	}
-
-	void DeactivateWarmup(string source, int playerCount)
-	{
-		if (!m_WarmupActive)
-			return;
-
-		m_WarmupActive = false;
-		m_WarmupActivationDueTime = 0;
-		CleanupWarmupInfected();
-		PrintFormat("DAFDeathmatch: low-pop warmup deactivated source=%1 players=%2 threshold=%3", source, playerCount, m_Settings.warmupPlayerThreshold);
-		BroadcastWarmupHud();
-	}
-
-	bool IsWarmupActive()
-	{
-		return m_WarmupActive;
-	}
-
-	bool IsWarmupPending()
-	{
-		return !m_WarmupActive && m_WarmupActivationDueTime > 0;
+		if (m_Warmup.Evaluate(GetPlayerCount(), m_RoundActive, m_CurrentArena, GetWarmupIgnorePlayerIds(), source))
+			BroadcastClientState();
 	}
 
 	bool ShouldBlockWarmupInfectedDamage(EntityAI source)
 	{
-		return m_WarmupActive && source && source.IsInherited(DayZInfected);
+		return m_Warmup.ShouldBlockInfectedDamage(source);
 	}
 
 	void OnPlayerDisconnected(PlayerBase player)
 	{
 		EvaluateWarmupState("player disconnected");
 		BroadcastClientState();
-	}
-
-	void BroadcastWarmupHud()
-	{
-		BroadcastClientState();
-	}
-
-	void SendWarmupHudTo(PlayerIdentity identity)
-	{
-		SendClientStateTo(identity);
 	}
 
 	void BroadcastClientState()
@@ -1991,235 +1569,24 @@ class DAFDeathmatch
 
 	string GetClientPlayerCountStatus()
 	{
-		if (m_WarmupActive)
-			return "Warmup Mode";
+		return m_Warmup.GetStatusString();
+	}
 
-		return "";
+	array<string> GetWarmupIgnorePlayerIds()
+	{
+		array<string> ids = new array<string>();
+		foreach (PlayerBase dummy: m_TestDummies)
+		{
+			if (dummy && dummy.GetIdentity())
+				ids.Insert(dummy.GetIdentity().GetId());
+		}
+
+		return ids;
 	}
 
 	bool IsManualRespawnAllowedForClients()
 	{
 		return m_Settings.enablePlayerRespawnCommand;
-	}
-
-	void MaintainWarmupInfected()
-	{
-		CullWarmupInfected();
-
-		if (m_Settings.warmupInfectedTargetCount <= 0)
-			return;
-
-		while (m_WarmupInfected.Count() < m_Settings.warmupInfectedTargetCount)
-		{
-			if (!SpawnWarmupInfected())
-				return;
-		}
-	}
-
-	void CullWarmupInfected()
-	{
-		for (int i = m_WarmupInfected.Count() - 1; i >= 0; i--)
-		{
-			ZombieBase infected = m_WarmupInfected[i];
-			if (!infected || infected.ToDelete() || !infected.IsAlive())
-			{
-				if (infected && !infected.ToDelete())
-					GetGame().ObjectDelete(infected);
-
-				m_WarmupInfected.Remove(i);
-			}
-		}
-	}
-
-	bool SpawnWarmupInfected()
-	{
-		vector position = PickWarmupInfectedPosition();
-		Object spawnedObject = GetGame().CreateObjectEx(m_Settings.warmupInfectedType, position, ECE_INITAI | ECE_PLACE_ON_SURFACE);
-		if (!spawnedObject)
-		{
-			PrintFormat("DAFDeathmatch: failed to spawn warmup infected type=%1 at %2", m_Settings.warmupInfectedType, position.ToString(true));
-			return false;
-		}
-
-		ZombieBase infected = ZombieBase.Cast(spawnedObject);
-		if (!infected)
-		{
-			PrintFormat("DAFDeathmatch: warmup infected type=%1 did not create a ZombieBase", m_Settings.warmupInfectedType);
-			GetGame().ObjectDelete(spawnedObject);
-			return false;
-		}
-
-		m_WarmupInfected.Insert(infected);
-		ApplyWarmupInfectedMovement(infected);
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.ApplyWarmupInfectedMovement, 500, false, infected);
-		return true;
-	}
-
-	void ApplyWarmupInfectedMovement(ZombieBase infected)
-	{
-		if (!infected || infected.ToDelete())
-			return;
-
-		DayZInfectedInputController controller = infected.GetInputController();
-		if (controller)
-			controller.OverrideMovementSpeed(true, m_Settings.warmupInfectedMovementSpeed);
-	}
-
-	vector PickWarmupInfectedPosition()
-	{
-		vector anchor = GetWarmupAnchorPosition();
-		float angle = Math.RandomFloatInclusive(0, Math.PI * 2);
-		float distance = Math.RandomFloatInclusive(m_Settings.warmupInfectedMinSpawnDistance, m_Settings.warmupInfectedMaxSpawnDistance);
-		vector position = Vector(anchor[0] + (Math.Cos(angle) * distance), anchor[1], anchor[2] + (Math.Sin(angle) * distance));
-		position = ClampWarmupPositionToArena(position);
-		return DAFDMArena.SnapToGround(position);
-	}
-
-	vector GetWarmupAnchorPosition()
-	{
-		PlayerBase player = GetWarmupAnchorPlayer();
-		if (player)
-			return player.GetPosition();
-
-		if (m_CurrentArena)
-			return m_CurrentArena.GetCenter();
-
-		return "0 0 0";
-	}
-
-	PlayerBase GetWarmupAnchorPlayer()
-	{
-		array<Man> players = new array<Man>();
-		GetGame().GetPlayers(players);
-
-		foreach (Man man: players)
-		{
-			PlayerBase player = PlayerBase.Cast(man);
-			if (player && player.GetIdentity() && player.IsAlive() && !IsTestDummy(player))
-				return player;
-		}
-
-		return null;
-	}
-
-	vector ClampWarmupPositionToArena(vector position)
-	{
-		if (!m_CurrentArena)
-			return position;
-
-		vector center = m_CurrentArena.GetCenter();
-		if (m_CurrentArena.IsRectangular())
-		{
-			float halfX = (m_CurrentArena.GetXSize() * 0.5) - 5;
-			float halfZ = (m_CurrentArena.GetZSize() * 0.5) - 5;
-			if (halfX > 1)
-				position[0] = Math.Clamp(position[0], center[0] - halfX, center[0] + halfX);
-			if (halfZ > 1)
-				position[2] = Math.Clamp(position[2], center[2] - halfZ, center[2] + halfZ);
-
-			return position;
-		}
-
-		float radius = m_CurrentArena.GetRadius() - 5;
-		if (radius <= 1)
-			return position;
-
-		float dx = position[0] - center[0];
-		float dz = position[2] - center[2];
-		float distance = Math.Sqrt((dx * dx) + (dz * dz));
-		if (distance <= radius || distance <= 0.1)
-			return position;
-
-		position[0] = center[0] + ((dx / distance) * radius);
-		position[2] = center[2] + ((dz / distance) * radius);
-		return position;
-	}
-
-	void CleanupWarmupInfected()
-	{
-		for (int i = m_WarmupInfected.Count() - 1; i >= 0; i--)
-		{
-			ZombieBase infected = m_WarmupInfected[i];
-			if (infected && !infected.ToDelete())
-				GetGame().ObjectDelete(infected);
-		}
-
-		m_WarmupInfected.Clear();
-	}
-
-	int GetActiveWarmupInfectedCount()
-	{
-		CullWarmupInfected();
-		return m_WarmupInfected.Count();
-	}
-
-	void RefillWarmupAmmo()
-	{
-		if (!m_Settings.warmupUnlimitedAmmo)
-			return;
-
-		array<Man> players = new array<Man>();
-		GetGame().GetPlayers(players);
-
-		foreach (Man man: players)
-		{
-			PlayerBase player = PlayerBase.Cast(man);
-			if (player && player.GetIdentity() && player.IsAlive() && !IsTestDummy(player))
-				RefillWarmupPlayerMagazines(player);
-		}
-	}
-
-	void RefillWarmupPlayerMagazines(PlayerBase player)
-	{
-		bool changed = false;
-		array<EntityAI> items = new array<EntityAI>();
-		player.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
-
-		EntityAI inHands = player.GetHumanInventory().GetEntityInHands();
-		foreach (EntityAI item: items)
-		{
-			changed = RefillWarmupMagazine(item, inHands, false) || changed;
-		}
-
-		changed = RefillWarmupMagazine(inHands, inHands, false) || changed;
-		if (changed)
-			player.SetSynchDirty();
-	}
-
-	bool RefillWarmupMagazine(EntityAI item, EntityAI inHands, bool allowWeaponMagazine)
-	{
-		bool changed = false;
-		Weapon_Base weapon = Weapon_Base.Cast(item);
-		if (weapon)
-		{
-			bool isHeldWeapon = item == inHands;
-			for (int muzzle = 0; muzzle < weapon.GetMuzzleCount(); muzzle++)
-			{
-				if (!isHeldWeapon)
-					changed = RefillWarmupMagazine(weapon.GetMagazine(muzzle), inHands, true) || changed;
-			}
-
-			if (changed)
-			{
-				weapon.SetSynchDirty();
-				weapon.Synchronize();
-			}
-		}
-
-		Magazine magazine = Magazine.Cast(item);
-		if (!magazine || magazine.IsAmmoPile())
-			return changed;
-
-		if (!allowWeaponMagazine && Weapon_Base.Cast(magazine.GetHierarchyParent()))
-			return changed;
-
-		if (magazine.GetAmmoCount() >= magazine.GetAmmoMax())
-			return changed;
-
-		magazine.ServerSetAmmoMax();
-		magazine.SetSynchDirty();
-		changed = true;
-		return changed;
 	}
 
 	DAFDMSettings GetSettings()
