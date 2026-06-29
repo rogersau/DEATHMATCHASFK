@@ -14,6 +14,7 @@ Historically this is the shared client/server addon. It contains client-visible 
 - Active VOIP speaker overlay driven by client-received VON notifications
 - Per-round kill/death display in the killfeed
 - Complete weapon display parsing for killfeed events
+- Server-to-client RPC seam (`DAFRPC`): the single owner of the wire ids and typed send helpers shared by `DAFImprovements`, `DAFDeathmatch`, and `DAFServerImprovements`. The client receiver in `PlayerBase.OnRPC` dispatches through this module. Community Framework RPC adoption is a behind-the-seam swap, tracked by [ADR 0002](docs/adr/0002-adopt-community-framework-rpc.md). Callers must not reference raw RPC ids or build `Param` payloads directly — go through `DAFRPC`.
 - Client-side and server-side footwear drop/removal prevention
 - IV saline full-heal behavior with an 8 second apply time
 - IV saline drop/stash prevention and delete-on-death behavior

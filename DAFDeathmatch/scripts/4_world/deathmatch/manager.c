@@ -1074,12 +1074,7 @@ class DAFDeathmatch
 
 	void SendRespawnCursorFix(PlayerIdentity identity)
 	{
-		if (!identity)
-			return;
-
-		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
-		if (recipient)
-			recipient.RPCSingleParam(-74700007, new Param1<bool>(true), true, identity);
+		DAFRPC.SendRespawnCursorFix(identity);
 	}
 
 	vector GetRandomPlayerSpawnPosition()
@@ -2449,15 +2444,12 @@ class DAFDeathmatch
 
 	void BroadcastClientState()
 	{
-		array<Man> players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
+		int roundSeconds = DAFDMRoundTimer.GetRemainingSeconds();
+		string roundLabel = "";
+		if (m_RoundActive)
+			roundLabel = GetRoundDisplayName();
 
-		foreach (Man man: players)
-		{
-			PlayerBase recipient = PlayerBase.Cast(man);
-			if (recipient && recipient.GetIdentity())
-				SendClientState(recipient, recipient.GetIdentity());
-		}
+		DAFRPC.BroadcastRoundHudState(roundSeconds, roundLabel, GetPlayerCount(), GetClientPlayerCountStatus(), IsManualRespawnAllowedForClients());
 	}
 
 	void SendClientStateTo(PlayerIdentity identity)
@@ -2465,25 +2457,12 @@ class DAFDeathmatch
 		if (!identity)
 			return;
 
-		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
-		if (recipient)
-			SendClientState(recipient, identity);
-	}
-
-	void SendClientState(PlayerBase recipient, PlayerIdentity identity)
-	{
-		if (!recipient || !identity)
-			return;
-
-		int playerCount = GetPlayerCount();
-		string status = GetClientPlayerCountStatus();
 		int roundSeconds = DAFDMRoundTimer.GetRemainingSeconds();
 		string roundLabel = "";
 		if (m_RoundActive)
 			roundLabel = GetRoundDisplayName();
 
-		recipient.RPCSingleParam(-74700012, new Param5<int, string, int, string, bool>(roundSeconds, roundLabel, playerCount, status, IsManualRespawnAllowedForClients()), true, identity);
-		recipient.RPCSingleParam(-74700011, new Param2<int, string>(playerCount, status), true, identity);
+		DAFRPC.SendRoundHudState(identity, roundSeconds, roundLabel, GetPlayerCount(), GetClientPlayerCountStatus(), IsManualRespawnAllowedForClients());
 	}
 
 	string GetClientPlayerCountStatus()

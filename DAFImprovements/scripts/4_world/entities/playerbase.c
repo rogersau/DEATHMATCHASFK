@@ -398,89 +398,92 @@ modded class PlayerBase extends ManBase
 	override void OnRPC(PlayerIdentity sender, int rpc_type, ParamsReadContext ctx)
 	{
 		super.OnRPC(sender, rpc_type, ctx);
-		
+
 		if (GetGame().IsClient())
+			DAF_HandleClientRPC(rpc_type, ctx);
+	}
+
+	void DAF_HandleClientRPC(int rpc_type, ParamsReadContext ctx)
+	{
+		if (rpc_type == DAFRPC.RPC_KILLFEED_ITEM)
 		{
-			if (rpc_type == -74700005)
-			{
-				Param7<string, string, string, int, string, int, int> data;
-				if (!ctx.Read(data))
-					return;
+			Param7<string, string, string, int, string, int, int> data;
+			if (!ctx.Read(data))
+				return;
 
-				if (s_KillFeed)
-					s_KillFeed.AddItem(data);
-			}
-			else if (rpc_type == -74700006)
-			{
-				Param1<int> playerCount;
-				if (!ctx.Read(playerCount))
-					return;
+			if (s_KillFeed)
+				s_KillFeed.AddItem(data);
+		}
+		else if (rpc_type == DAFRPC.RPC_PLAYER_COUNT)
+		{
+			Param1<int> playerCount;
+			if (!ctx.Read(playerCount))
+				return;
 
-				if (s_KillFeed)
-					s_KillFeed.SetPlayerCount(playerCount.param1);
-			}
-			else if (rpc_type == -74700011)
-			{
-				Param2<int, string> playerCountStatus;
-				if (!ctx.Read(playerCountStatus))
-					return;
+			if (s_KillFeed)
+				s_KillFeed.SetPlayerCount(playerCount.param1);
+		}
+		else if (rpc_type == DAFRPC.RPC_PLAYER_COUNT_STATUS)
+		{
+			Param2<int, string> playerCountStatus;
+			if (!ctx.Read(playerCountStatus))
+				return;
 
-				if (s_KillFeed)
-					s_KillFeed.SetPlayerCountStatus(playerCountStatus.param1, playerCountStatus.param2);
-			}
-			else if (rpc_type == -74700007)
-			{
-				Param1<bool> respawnData;
-				if (!ctx.Read(respawnData))
-					return;
+			if (s_KillFeed)
+				s_KillFeed.SetPlayerCountStatus(playerCountStatus.param1, playerCountStatus.param2);
+		}
+		else if (rpc_type == DAFRPC.RPC_RESPAWN_CURSOR_FIX)
+		{
+			Param1<bool> respawnData;
+			if (!ctx.Read(respawnData))
+				return;
 
-				GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 100, false);
-				GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 750, false);
-				GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 1500, false);
-			}
-			else if (rpc_type == -74700008)
-			{
-				Param1<bool> resetData;
-				if (!ctx.Read(resetData))
-					return;
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 100, false);
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 750, false);
+			GetGame().GetCallQueue(CALL_CATEGORY_GUI).CallLater(this.DAF_FixRespawnCursor, 1500, false);
+		}
+		else if (rpc_type == DAFRPC.RPC_KILLFEED_RESET)
+		{
+			Param1<bool> resetData;
+			if (!ctx.Read(resetData))
+				return;
 
-				if (s_KillFeed)
-					s_KillFeed.ClearItems();
-			}
-			else if (rpc_type == -74700009)
-			{
-				Param1<int> roundTimeData;
-				if (!ctx.Read(roundTimeData))
-					return;
+			if (s_KillFeed)
+				s_KillFeed.ClearItems();
+		}
+		else if (rpc_type == DAFRPC.RPC_ROUND_TIME_SECONDS)
+		{
+			Param1<int> roundTimeData;
+			if (!ctx.Read(roundTimeData))
+				return;
 
-				s_DAF_PendingRoundSeconds = roundTimeData.param1;
-				if (s_KillFeed)
-					s_KillFeed.SetRoundTimeRemaining(roundTimeData.param1);
-			}
-			else if (rpc_type == -74700010)
-			{
-				Param1<string> roundLabelData;
-				if (!ctx.Read(roundLabelData))
-					return;
+			s_DAF_PendingRoundSeconds = roundTimeData.param1;
+			if (s_KillFeed)
+				s_KillFeed.SetRoundTimeRemaining(roundTimeData.param1);
+		}
+		else if (rpc_type == DAFRPC.RPC_ROUND_LABEL)
+		{
+			Param1<string> roundLabelData;
+			if (!ctx.Read(roundLabelData))
+				return;
 
-				s_DAF_PendingRoundLabel = roundLabelData.param1;
-				if (s_KillFeed)
-					s_KillFeed.SetRoundLabel(roundLabelData.param1);
-			}
-			else if (rpc_type == -74700012)
-			{
-				Param5<int, string, int, string, bool> stateData;
-				if (!ctx.Read(stateData))
-					return;
+			s_DAF_PendingRoundLabel = roundLabelData.param1;
+			if (s_KillFeed)
+				s_KillFeed.SetRoundLabel(roundLabelData.param1);
+		}
+		else if (rpc_type == DAFRPC.RPC_ROUND_HUD_STATE)
+		{
+			Param5<int, string, int, string, bool> stateData;
+			if (!ctx.Read(stateData))
+				return;
 
-				s_DAF_PendingRoundSeconds = stateData.param1;
-				s_DAF_PendingRoundLabel = stateData.param2;
-				s_DAF_PendingPlayerCount = stateData.param3;
-				s_DAF_PendingPlayerCountStatus = stateData.param4;
-				s_DAFDM_ManualRespawnAllowed = stateData.param5;
+			s_DAF_PendingRoundSeconds = stateData.param1;
+			s_DAF_PendingRoundLabel = stateData.param2;
+			s_DAF_PendingPlayerCount = stateData.param3;
+			s_DAF_PendingPlayerCountStatus = stateData.param4;
+			s_DAFDM_ManualRespawnAllowed = stateData.param5;
 
-				DAF_ApplyPendingRoundHud();
-			}
+			DAF_ApplyPendingRoundHud();
 		}
 	}
 

@@ -69,12 +69,7 @@ modded class MissionServer
 
 	void DAFServer_SendRespawnFix(PlayerIdentity identity)
 	{
-		if (!identity)
-			return;
-
-		PlayerBase player = PlayerBase.Cast(identity.GetPlayer());
-		if (player)
-			player.RPCSingleParam(-74700007, new Param1<bool>(true), true, identity);
+		DAFRPC.SendRespawnCursorFix(identity);
 	}
 
 	void DAFServer_PostRespawnSetup(PlayerIdentity identity)
