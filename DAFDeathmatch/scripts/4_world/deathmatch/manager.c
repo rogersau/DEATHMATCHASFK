@@ -15,7 +15,7 @@ class DAFDeathmatch
 	private bool m_RoundActive;
 	private ref map<string, bool> m_AutoRespawnOverrides;
 	private ref map<string, string> m_LastLoadoutByPlayer;
-	private ref map<string, string> m_TeamByPlayerId;
+	private ref DAFDMTeams m_Teams;
 	private ref array<Object> m_RoundObjects;
 	private ref array<PlayerBase> m_TestDummies;
 	private ref DAFDMDeathFlow m_DeathFlow;
@@ -47,7 +47,7 @@ class DAFDeathmatch
 		m_ForcedGameMode = "";
 		m_AutoRespawnOverrides = new map<string, bool>();
 		m_LastLoadoutByPlayer = new map<string, string>();
-		m_TeamByPlayerId = new map<string, string>();
+		m_Teams = new DAFDMTeams(m_Settings);
 		m_RoundObjects = new array<Object>();
 		m_TestDummies = new array<PlayerBase>();
 		m_DeathFlow = new DAFDMDeathFlow(m_Settings.corpseCleanupSeconds, m_Settings.deathDropCleanupSeconds);
@@ -86,7 +86,7 @@ class DAFDeathmatch
 
 		m_RoundActive = true;
 		m_Scoreboard.Reset();
-		m_TeamByPlayerId.Clear();
+		m_Teams.Reset();
 		m_Discord.ResetRoundStats();
 		PrintFormat("DAFDeathmatch: %1 round started in arena %2", GetRoundDisplayName(), m_CurrentArena.GetName());
 
@@ -123,7 +123,7 @@ class DAFDeathmatch
 		if (!player)
 			return;
 
-		AssignTeam(player.GetIdentity());
+		m_Teams.Assign(player.GetIdentity(), m_CurrentGameMode);
 
 		if (m_CurrentArena)
 			m_CurrentArena.FaceCenter(player);
@@ -144,7 +144,7 @@ class DAFDeathmatch
 			return;
 
 		m_Scoreboard.ResetPlayer(identity);
-		AssignTeam(identity);
+		m_Teams.Assign(identity, m_CurrentGameMode);
 		EvaluateWarmupState("player reset");
 		SendClientStateTo(identity);
 	}
@@ -179,8 +179,8 @@ class DAFDeathmatch
 
 		if (IsTeamRound())
 		{
-			string victimTeam = GetTeamForIdentity(victimIdentity);
-			string killerTeam = GetTeamForIdentity(killerIdentity);
+			string victimTeam = m_Teams.GetTeam(victimIdentity, m_CurrentGameMode);
+			string killerTeam = m_Teams.GetTeam(killerIdentity, m_CurrentGameMode);
 			if (victimTeam != "" && killerTeam != "" && victimTeam == killerTeam)
 			{
 				m_Scoreboard.AddDeath(victimIdentity);
@@ -286,7 +286,7 @@ class DAFDeathmatch
 			PlayerIdentity identity = source.GetIdentity();
 			if (IsTeamRound())
 			{
-				string team = GetTeamForIdentity(identity);
+				string team = m_Teams.GetTeam(identity, m_CurrentGameMode);
 				DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D | Team: %3 %4", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), team, m_Scoreboard.GetTeamScore(team)));
 			}
 			else
@@ -580,7 +580,7 @@ class DAFDeathmatch
 			return;
 		}
 
-		string sourceTeam = GetTeamForIdentity(source.GetIdentity());
+		string sourceTeam = m_Teams.GetTeam(source.GetIdentity(), m_CurrentGameMode);
 		DAFDMChat.MessagePlayer(source, "Your team: " + sourceTeam);
 		foreach (string team: m_Settings.teamNames)
 		{
@@ -588,7 +588,7 @@ class DAFDeathmatch
 				continue;
 
 			team.ToLower();
-			DAFDMChat.MessagePlayer(source, string.Format("Team %1: players=%2 score=%3", team, CountAssignedTeam(team), m_Scoreboard.GetTeamScore(team)));
+			DAFDMChat.MessagePlayer(source, string.Format("Team %1: players=%2 score=%3", team, m_Teams.CountAssigned(team), m_Scoreboard.GetTeamScore(team)));
 		}
 	}
 
@@ -619,7 +619,7 @@ class DAFDeathmatch
 		if (IsTeamRound())
 		{
 			mode = "tdm";
-			team = GetTeamForIdentity(source.GetIdentity());
+			team = m_Teams.GetTeam(source.GetIdentity(), m_CurrentGameMode);
 		}
 
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 mode=%2 team=%3 arena=%4 pool=%5 loadout=%6 hands=%7", GetRoundDisplayName(), mode, team, arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
@@ -844,7 +844,7 @@ class DAFDeathmatch
 		if (IsTeamRound())
 		{
 			mode = "tdm";
-			team = GetTeamForIdentity(source.GetIdentity());
+			team = m_Teams.GetTeam(source.GetIdentity(), m_CurrentGameMode);
 		}
 
 		DAFDMChat.MessagePlayer(source, string.Format("SpawnReport: arena=%1 mode=%2 team=%3 chosen=%4/%5 safe=%6 fallback=%7 score=%8 pos=%9", m_CurrentArena.GetName(), mode, team, candidate.index, candidate.totalSpawns, !candidate.rejected, candidate.fallback, candidate.score, candidate.position));
@@ -959,14 +959,14 @@ class DAFDeathmatch
 			return;
 		}
 
-		m_TeamByPlayerId.Clear();
+		m_Teams.Reset();
 		array<Man> players = new array<Man>();
 		GetGame().GetWorld().GetPlayerList(players);
 		foreach (Man man: players)
 		{
 			PlayerBase player = PlayerBase.Cast(man);
 			if (player && player.GetIdentity() && player.IsAlive() && !IsTestDummy(player))
-				AssignTeam(player.GetIdentity());
+				m_Teams.Assign(player.GetIdentity(), m_CurrentGameMode);
 		}
 
 		DAFDMChat.Announce("Admin shuffled teams");
@@ -1025,7 +1025,7 @@ class DAFDeathmatch
 		if (!player || !m_CurrentArena)
 			return;
 
-		AssignTeam(player.GetIdentity());
+		m_Teams.Assign(player.GetIdentity(), m_CurrentGameMode);
 		vector position = PickSafeSpawn(player.GetIdentity(), player);
 		player.SetPosition(position);
 		m_CurrentArena.FaceCenter(player);
@@ -1038,7 +1038,7 @@ class DAFDeathmatch
 		if (!identity || !m_CurrentArena)
 			return;
 
-		AssignTeam(identity);
+		m_Teams.Assign(identity, m_CurrentGameMode);
 		vector position = PickSafeSpawn(identity, oldPlayer);
 		PlayerBase player = PlayerBase.Cast(GetGame().CreatePlayer(identity, "SurvivorM_Mirek", position, 0, "NONE"));
 		if (!player)
@@ -1067,7 +1067,7 @@ class DAFDeathmatch
 	vector GetPlayerSpawnPosition(PlayerIdentity identity)
 	{
 		EnsureRoundReady();
-		AssignTeam(identity);
+		m_Teams.Assign(identity, m_CurrentGameMode);
 
 		if (m_CurrentArena)
 			return PickSafeSpawn(identity, null);
@@ -1304,8 +1304,8 @@ class DAFDeathmatch
 		if (!IsTeamRound())
 			return true;
 
-		string ownTeam = GetTeamForIdentity(identity);
-		string otherTeam = GetTeamForIdentity(other.GetIdentity());
+		string ownTeam = m_Teams.GetTeam(identity, m_CurrentGameMode);
+		string otherTeam = m_Teams.GetTeam(other.GetIdentity(), m_CurrentGameMode);
 		if (ownTeam == "" || otherTeam == "")
 			return true;
 
@@ -1314,107 +1314,7 @@ class DAFDeathmatch
 
 	bool IsTeamRound()
 	{
-		string mode = m_CurrentGameMode;
-		mode.ToLower();
-		return mode == "tdm";
-	}
-
-	string AssignTeam(PlayerIdentity identity)
-	{
-		if (!identity || !IsTeamRound())
-			return "";
-
-		string playerId = identity.GetId();
-		string existingTeam;
-		if (m_TeamByPlayerId.Find(playerId, existingTeam))
-			return existingTeam;
-
-		string team = FindPreassignedTeam(playerId);
-		if (team == "")
-			team = PickBalancedTeam();
-
-		m_TeamByPlayerId.Set(playerId, team);
-		PrintFormat("DAFDeathmatch: assigned team player=%1 team=%2", playerId, team);
-		return team;
-	}
-
-	string GetTeamForIdentity(PlayerIdentity identity)
-	{
-		if (!identity)
-			return "";
-
-		string team;
-		if (m_TeamByPlayerId.Find(identity.GetId(), team))
-			return team;
-
-		return AssignTeam(identity);
-	}
-
-	string FindPreassignedTeam(string playerId)
-	{
-		if (playerId == "")
-			return "";
-
-		foreach (DAFDMTeamAssignmentConfig assignment: m_Settings.preassignedTeams)
-		{
-			if (!assignment || assignment.playerId != playerId)
-				continue;
-
-			string team = assignment.team;
-			team.ToLower();
-			if (IsValidTeam(team))
-				return team;
-		}
-
-		return "";
-	}
-
-	string PickBalancedTeam()
-	{
-		if (!m_Settings.teamNames || m_Settings.teamNames.Count() == 0)
-			return "red";
-
-		string bestTeam = m_Settings.teamNames.GetRandomElement();
-		int bestCount = 1000000;
-		foreach (string team: m_Settings.teamNames)
-		{
-			if (team == "")
-				continue;
-
-			team.ToLower();
-			int count = CountAssignedTeam(team);
-			if (count < bestCount || (count == bestCount && Math.RandomInt(0, 2) == 0))
-			{
-				bestTeam = team;
-				bestCount = count;
-			}
-		}
-
-		return bestTeam;
-	}
-
-	int CountAssignedTeam(string team)
-	{
-		int count = 0;
-		for (int i = 0; i < m_TeamByPlayerId.Count(); i++)
-		{
-			if (m_TeamByPlayerId.GetElement(i) == team)
-				count++;
-		}
-
-		return count;
-	}
-
-	bool IsValidTeam(string team)
-	{
-		foreach (string configuredTeam: m_Settings.teamNames)
-		{
-			configuredTeam.ToLower();
-			if (configuredTeam == team)
-				return true;
-		}
-
-		return false;
+		return DAFDMTeams.IsTeamMode(m_CurrentGameMode);
 	}
 
 	void SpawnTestDummy(PlayerBase source)
@@ -1668,7 +1568,7 @@ class DAFDeathmatch
 		if (!player || !IsTeamRound() || !m_Settings.enforceTDMTeamOutfits)
 			return;
 
-		string team = GetTeamForIdentity(player.GetIdentity());
+		string team = m_Teams.GetTeam(player.GetIdentity(), m_CurrentGameMode);
 		string jacket;
 		string pants;
 		string shoes;
