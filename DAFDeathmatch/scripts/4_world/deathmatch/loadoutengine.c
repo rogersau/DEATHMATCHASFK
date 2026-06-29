@@ -11,6 +11,8 @@ class DAFDMLoadoutEngine
 	private ref DAFDMLoadoutRegistry m_Loadouts;
 	private ref DAFDMTeams m_Teams;
 	private ref map<string, string> m_LastLoadoutByPlayer = new map<string, string>();
+	private ref map<string, string> m_LastPrimaryTypeByPlayer = new map<string, string>();
+	private ref map<string, string> m_LastSecondaryTypeByPlayer = new map<string, string>();
 
 	void DAFDMLoadoutEngine(DAFDMSettings settings, DAFDMLoadoutRegistry loadouts, DAFDMTeams teams)
 	{
@@ -42,6 +44,17 @@ class DAFDMLoadoutEngine
 
 		EntityAI secondary = CreateLoadoutWeapon(player, inventory, loadout.secondary, false);
 
+		string playerId = "";
+		if (player.GetIdentity())
+			playerId = player.GetIdentity().GetId();
+
+		m_LastPrimaryTypeByPlayer.Set(playerId, "");
+		m_LastSecondaryTypeByPlayer.Set(playerId, "");
+		if (primary)
+			m_LastPrimaryTypeByPlayer.Set(playerId, primary.GetType());
+		if (secondary)
+			m_LastSecondaryTypeByPlayer.Set(playerId, secondary.GetType());
+
 		foreach (DAFDMLoadoutItemConfig itemConfig: loadout.items)
 		{
 			if (!itemConfig || itemConfig.type == "")
@@ -52,7 +65,8 @@ class DAFDMLoadoutEngine
 				player.SetQuickBarEntityShortcut(item, itemConfig.quickbarSlot, true);
 		}
 
-		NormalizeLoadoutHotbar(player, primary, secondary);
+		NormalizeLoadoutHotbar(player, primary, secondary, true);
+		ScheduleLoadoutHotbarResync(player);
 	}
 
 	string GetLastLoadoutName(string playerId)
@@ -64,7 +78,7 @@ class DAFDMLoadoutEngine
 		return loadoutName;
 	}
 
-	private void NormalizeLoadoutHotbar(PlayerBase player, EntityAI primary, EntityAI secondary)
+	private void NormalizeLoadoutHotbar(PlayerBase player, EntityAI primary, EntityAI secondary, bool createMissingSurvivalItems)
 	{
 		if (!player)
 			return;
@@ -75,10 +89,25 @@ class DAFDMLoadoutEngine
 		if (secondary)
 			player.SetQuickBarEntityShortcut(secondary, 1, true);
 
-		EntityAI knife = EnsureKnife(player);
-		EntityAI morphine = EnsureLoadoutItem(player, "Morphine", "morphine");
-		EntityAI bandage = EnsureLoadoutItem(player, "BandageDressing", "bandage");
-		EntityAI saline = EnsureLoadoutItem(player, "SalineBagIV", "saline");
+		EntityAI knife = null;
+		EntityAI morphine = null;
+		EntityAI bandage = null;
+		EntityAI saline = null;
+
+		if (createMissingSurvivalItems)
+		{
+			knife = EnsureKnife(player);
+			morphine = EnsureLoadoutItem(player, "Morphine", "morphine");
+			bandage = EnsureLoadoutItem(player, "BandageDressing", "bandage");
+			saline = EnsureLoadoutItem(player, "SalineBagIV", "saline");
+		}
+		else
+		{
+			knife = FindKnife(player);
+			morphine = FindLoadoutItem(player, "Morphine");
+			bandage = FindLoadoutItem(player, "BandageDressing");
+			saline = FindLoadoutItem(player, "SalineBagIV");
+		}
 
 		if (knife)
 			player.SetQuickBarEntityShortcut(knife, 2, true);
@@ -93,7 +122,64 @@ class DAFDMLoadoutEngine
 			player.SetQuickBarEntityShortcut(saline, 5, true);
 	}
 
+	private void ScheduleLoadoutHotbarResync(PlayerBase player)
+	{
+		if (!player)
+			return;
+
+		PlayerIdentity identity = player.GetIdentity();
+		if (!identity)
+			return;
+
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.ResyncLoadoutHotbar, 500, false, identity);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.ResyncLoadoutHotbar, 1500, false, identity);
+	}
+
+	void ResyncLoadoutHotbar(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		PlayerBase player = PlayerBase.Cast(identity.GetPlayer());
+		if (!player)
+			return;
+
+		string playerId = identity.GetId();
+		string primaryType = "";
+		string secondaryType = "";
+		m_LastPrimaryTypeByPlayer.Find(playerId, primaryType);
+		m_LastSecondaryTypeByPlayer.Find(playerId, secondaryType);
+
+		EntityAI primary = null;
+		if (primaryType != "")
+			primary = FindInventoryItemByType(player, primaryType);
+
+		if (!primary)
+			primary = player.GetHumanInventory().GetEntityInHands();
+
+		EntityAI secondary = null;
+		if (secondaryType != "")
+			secondary = FindInventoryItemByType(player, secondaryType);
+
+		NormalizeLoadoutHotbar(player, primary, secondary, false);
+	}
+
 	private EntityAI EnsureKnife(PlayerBase player)
+	{
+		EntityAI existing = FindKnife(player);
+		if (existing)
+			return existing;
+
+		TStringArray knifeTypes = new TStringArray();
+		knifeTypes.Insert("CombatKnife");
+		knifeTypes.Insert("HuntingKnife");
+		knifeTypes.Insert("KitchenKnife");
+		knifeTypes.Insert("SteakKnife");
+		knifeTypes.Insert("StoneKnife");
+		return CreateLoadoutItemAny(player, knifeTypes, "knife");
+	}
+
+	private EntityAI FindKnife(PlayerBase player)
 	{
 		TStringArray knifeTypes = new TStringArray();
 		knifeTypes.Insert("CombatKnife");
@@ -101,22 +187,29 @@ class DAFDMLoadoutEngine
 		knifeTypes.Insert("KitchenKnife");
 		knifeTypes.Insert("SteakKnife");
 		knifeTypes.Insert("StoneKnife");
-		return EnsureLoadoutItemAny(player, knifeTypes, "knife");
+		return FindInventoryItemAny(player, knifeTypes);
 	}
 
 	private EntityAI EnsureLoadoutItem(PlayerBase player, string type, string label)
 	{
-		TStringArray types = new TStringArray();
-		types.Insert(type);
-		return EnsureLoadoutItemAny(player, types, label);
-	}
-
-	private EntityAI EnsureLoadoutItemAny(PlayerBase player, TStringArray types, string label)
-	{
-		EntityAI existing = FindInventoryItemAny(player, types);
+		EntityAI existing = FindLoadoutItem(player, type);
 		if (existing)
 			return existing;
 
+		TStringArray types = new TStringArray();
+		types.Insert(type);
+		return CreateLoadoutItemAny(player, types, label);
+	}
+
+	private EntityAI FindLoadoutItem(PlayerBase player, string type)
+	{
+		TStringArray types = new TStringArray();
+		types.Insert(type);
+		return FindInventoryItemAny(player, types);
+	}
+
+	private EntityAI CreateLoadoutItemAny(PlayerBase player, TStringArray types, string label)
+	{
 		HumanInventory inventory = player.GetHumanInventory();
 		foreach (string type: types)
 		{
@@ -148,6 +241,16 @@ class DAFDMLoadoutEngine
 			return inHands;
 
 		return null;
+	}
+
+	private EntityAI FindInventoryItemByType(PlayerBase player, string type)
+	{
+		if (!player || type == "")
+			return null;
+
+		TStringArray types = new TStringArray();
+		types.Insert(type);
+		return FindInventoryItemAny(player, types);
 	}
 
 	private bool ItemMatchesAnyType(EntityAI item, TStringArray types)

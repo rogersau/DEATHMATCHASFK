@@ -1408,63 +1408,8 @@ class DAFDeathmatch
 		if (!m_Settings.spawnArenaWalls || !m_CurrentArena)
 			return;
 
-		if (m_CurrentArena.IsRectangular())
-		{
-			SpawnRectangularArenaWalls();
-			return;
-		}
-
-		vector center = m_CurrentArena.GetCenter();
-		float radius = m_CurrentArena.GetRadius();
-		for (int i = 0; i < m_Settings.arenaWallSegments; i++)
-		{
-			float angle = ((Math.PI * 2) / m_Settings.arenaWallSegments) * i;
-			vector position = Vector(center[0] + Math.Cos(angle) * radius, center[1], center[2] + Math.Sin(angle) * radius);
-			position = DAFDMArena.SnapToGround(position);
-			Object wall = GetGame().CreateObject(m_Settings.arenaWallType, position, false, true);
-			if (wall)
-			{
-				wall.SetDirection(Vector(Math.Sin(angle), 0, Math.Cos(angle)));
-				m_RoundObjects.Insert(wall);
-			}
-		}
-	}
-
-	void SpawnRectangularArenaWalls()
-	{
-		vector center = m_CurrentArena.GetCenter();
-		float halfX = m_CurrentArena.GetXSize() * 0.5;
-		float halfZ = m_CurrentArena.GetZSize() * 0.5;
-		if (halfX <= 0 || halfZ <= 0)
-			return;
-
-		int xSegments = m_Settings.arenaWallSegments / 4;
-		int zSegments = m_Settings.arenaWallSegments / 4;
-		if (xSegments < 2)
-			xSegments = 2;
-		if (zSegments < 2)
-			zSegments = 2;
-
-		SpawnWallLine(Vector(center[0] - halfX, center[1], center[2] - halfZ), Vector(center[0] + halfX, center[1], center[2] - halfZ), xSegments, 90);
-		SpawnWallLine(Vector(center[0] - halfX, center[1], center[2] + halfZ), Vector(center[0] + halfX, center[1], center[2] + halfZ), xSegments, 90);
-		SpawnWallLine(Vector(center[0] - halfX, center[1], center[2] - halfZ), Vector(center[0] - halfX, center[1], center[2] + halfZ), zSegments, 0);
-		SpawnWallLine(Vector(center[0] + halfX, center[1], center[2] - halfZ), Vector(center[0] + halfX, center[1], center[2] + halfZ), zSegments, 0);
-	}
-
-	void SpawnWallLine(vector start, vector finish, int segments, float direction)
-	{
-		for (int i = 0; i < segments; i++)
-		{
-			float t = (i + 0.5) / segments;
-			vector position = Vector(start[0] + ((finish[0] - start[0]) * t), start[1], start[2] + ((finish[2] - start[2]) * t));
-			position = DAFDMArena.SnapToGround(position);
-			Object wall = GetGame().CreateObject(m_Settings.arenaWallType, position, false, true);
-			if (wall)
-			{
-				wall.SetOrientation(Vector(direction, 0, 0));
-				m_RoundObjects.Insert(wall);
-			}
-		}
+		m_CurrentArena.Prepare(m_RoundObjects);
+		m_CurrentArena.Enclose(m_RoundObjects, m_Settings.arenaWallType);
 	}
 
 	void CleanupRoundObjects()

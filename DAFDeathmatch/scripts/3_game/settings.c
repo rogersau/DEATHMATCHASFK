@@ -33,8 +33,7 @@ class DAFDMSettings
 	string commandCharacter = "@";
 	string version = "DAFDeathmatch first playable";
 	bool spawnArenaWalls = true;
-	string arenaWallType = "Land_ConcreteBlock";
-	int arenaWallSegments = 24;
+	string arenaWallType = "Land_Castle_Wall1_20";
 	int corpseCleanupSeconds = 5;
 	int deathDropCleanupSeconds = 60;
 	bool enableAdminTestCommands = false;
@@ -168,9 +167,6 @@ class DAFDMSettings
 
 		if (warmupInfectedMovementSpeed < 0.1)
 			warmupInfectedMovementSpeed = 1.0;
-
-		if (arenaWallSegments < 8)
-			arenaWallSegments = 8;
 
 		if (commandCharacter.Length() == 0)
 			commandCharacter = "@";

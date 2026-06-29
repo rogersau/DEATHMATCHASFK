@@ -1,3 +1,10 @@
+class DAFDMPropConfig
+{
+	string type;
+	ref array<float> position = new array<float>();
+	ref array<float> orientation = new array<float>();
+}
+
 class DAFDMArenaConfig
 {
 	string name;
@@ -9,6 +16,27 @@ class DAFDMArenaConfig
 	int minimumPlayers = 0;
 	int maximumPlayers = 0;
 	ref array<ref array<float>> playerSpawns = new array<ref array<float>>();
+	bool disableWalls = false;
+	ref array<ref DAFDMPropConfig> props = new array<ref DAFDMPropConfig>();
+}
+
+class DAFDMProp
+{
+	string type;
+	vector position;
+	vector orientation;
+
+	void DAFDMProp(string typeName, vector pos, vector orient)
+	{
+		type = typeName;
+		position = pos;
+		orientation = orient;
+	}
+
+	Object Spawn()
+	{
+		return GetGame().CreateObjectEx(type, position, ECE_PLACE_ON_SURFACE);
+	}
 }
 
 class DAFDMArena
@@ -20,6 +48,8 @@ class DAFDMArena
 	float m_XSize;
 	float m_ZSize;
 	ref array<vector> m_PlayerSpawns;
+	bool m_DisableWalls;
+	ref array<ref DAFDMProp> m_Props;
 
 	void DAFDMArena(string name, vector center, float radius, bool rectangular = false, float xSize = 0, float zSize = 0)
 	{
@@ -30,6 +60,8 @@ class DAFDMArena
 		m_XSize = xSize;
 		m_ZSize = zSize;
 		m_PlayerSpawns = new array<vector>();
+		m_DisableWalls = false;
+		m_Props = new array<ref DAFDMProp>();
 	}
 
 	string GetName()
@@ -90,6 +122,114 @@ class DAFDMArena
 		return position;
 	}
 
+	void DisableWalls()
+	{
+		m_DisableWalls = true;
+	}
+
+	bool IsWallsDisabled()
+	{
+		return m_DisableWalls;
+	}
+
+	void AddProp(string type, vector position, vector orientation)
+	{
+		m_Props.Insert(new DAFDMProp(type, position, orientation));
+	}
+
+	void Prepare(array<Object> objects)
+	{
+		foreach (DAFDMProp prop : m_Props)
+		{
+			Object obj = prop.Spawn();
+			if (obj)
+			{
+				obj.SetOrientation(prop.orientation);
+				objects.Insert(obj);
+			}
+		}
+	}
+
+	Object PlaceWall(vector position, vector orientation, string wallType)
+	{
+		position[1] = GetGame().SurfaceY(position[0], position[2]);
+
+		int flags = ECE_PLACE_ON_SURFACE;
+		float depth = GetGame().GetWaterDepth(position);
+		if (depth > 1)
+		{
+			position[1] = position[1] + depth - 1;
+			flags |= ECE_KEEPHEIGHT;
+		}
+
+		Object obj = GetGame().CreateObjectEx(wallType, position, flags);
+		if (obj)
+			obj.SetOrientation(orientation);
+
+		return obj;
+	}
+
+	void EncloseCircle(array<Object> enclosure, string wallType)
+	{
+		float step = 360 / ((2 * Math.PI * m_Radius) / 20);
+		float angle = 0;
+		while (angle < 360)
+		{
+			vector vec = Vector(angle, 0, 0).AnglesToVector();
+			vector position = m_Center + (vec * m_Radius);
+			vector orientation = Vector(angle + 180, 0, 0);
+
+			Object wall = PlaceWall(position, orientation, wallType);
+			if (wall)
+				enclosure.Insert(wall);
+
+			angle += step;
+		}
+	}
+
+	void EncloseRectangle(array<Object> enclosure, string wallType)
+	{
+		float x = m_Center[0] - (m_XSize / 2);
+
+		while (x <= m_Center[0] + (m_XSize / 2))
+		{
+			Object wall1 = PlaceWall(Vector(x, 0, m_Center[2] - (m_ZSize / 2)), "0 0 0", wallType);
+			if (wall1)
+				enclosure.Insert(wall1);
+
+			Object wall2 = PlaceWall(Vector(x, 0, m_Center[2] + (m_ZSize / 2)), "180 0 0", wallType);
+			if (wall2)
+				enclosure.Insert(wall2);
+
+			x += 20;
+		}
+
+		float z = m_Center[2] - (m_ZSize / 2);
+		while (z <= m_Center[2] + (m_ZSize / 2))
+		{
+			Object wall3 = PlaceWall(Vector(m_Center[0] - (m_XSize / 2), 0, z), "90 0 0", wallType);
+			if (wall3)
+				enclosure.Insert(wall3);
+
+			Object wall4 = PlaceWall(Vector(m_Center[0] + (m_XSize / 2), 0, z), "270 0 0", wallType);
+			if (wall4)
+				enclosure.Insert(wall4);
+
+			z += 20;
+		}
+	}
+
+	void Enclose(array<Object> enclosure, string wallType)
+	{
+		if (m_DisableWalls)
+			return;
+
+		if (m_Rectangular)
+			EncloseRectangle(enclosure, wallType);
+		else
+			EncloseCircle(enclosure, wallType);
+	}
+
 	static DAFDMArena FromConfig(DAFDMArenaConfig config)
 	{
 		float radius = config.radius;
@@ -101,6 +241,15 @@ class DAFDMArena
 		foreach (array<float> spawn: config.playerSpawns)
 		{
 			arena.m_PlayerSpawns.Insert(VectorFromArray(spawn));
+		}
+
+		if (config.disableWalls)
+			arena.DisableWalls();
+
+		foreach (DAFDMPropConfig prop : config.props)
+		{
+			if (prop && prop.type != "")
+				arena.AddProp(prop.type, VectorFromArray(prop.position), VectorFromArray(prop.orientation));
 		}
 
 		return arena;
