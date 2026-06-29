@@ -34,6 +34,7 @@ Put features here when they are generic DayZ behavior, UI, or shared prediction/
 - Active VOIP speaker overlay, driven by client-received VON notifications
 - Per-round kill/death display sent through the killfeed
 - Complete weapon display parsing for killfeed events
+- Server-to-client RPC seam (`DAFRPC`): the single owner of the shared wire ids and typed send helpers used by all three DAF addons. Any new server→client RPC goes through this module; do not introduce raw RPC ids or build `Param` payloads at call sites. See [ADR 0002](docs/adr/0002-adopt-community-framework-rpc.md).
 - Client-side and server-side footwear drop/removal prevention
 - IV saline full-heal behavior, currently balanced with an 8 second apply time
 - IV saline drop/stash prevention and delete-on-death behavior

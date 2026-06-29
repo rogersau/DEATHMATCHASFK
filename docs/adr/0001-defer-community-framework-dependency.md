@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0002](0002-adopt-community-framework-rpc.md).
+
+The decision was correct at the time, but its load-bearing reason — that Community Framework *"adds a required client/server mod dependency"* — no longer holds: clients on the live DAF server already load Community Framework for anticheat. ADR 0002 also builds the local RPC wrapper this ADR mandated but was never implemented. See ADR 0002 for the replacement decision.
 
 ## Context
 

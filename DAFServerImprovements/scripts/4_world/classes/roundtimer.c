@@ -64,14 +64,6 @@ class DAFServerRoundTimer
 
 	static void BroadcastSeconds(int seconds)
 	{
-		array<Man> players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
-
-		for (int i = 0; i < players.Count(); i++)
-		{
-			PlayerBase recipient = PlayerBase.Cast(players[i]);
-			if (recipient && recipient.GetIdentity())
-				recipient.RPCSingleParam(-74700009, new Param1<int>(seconds), true, recipient.GetIdentity());
-		}
+		DAFRPC.SendRoundTimeSeconds(seconds);
 	}
 }

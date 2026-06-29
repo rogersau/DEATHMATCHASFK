@@ -72,34 +72,13 @@ class DAFDMRoundTimer
 
 	static void BroadcastSeconds(int seconds)
 	{
-		array<Man> players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
-
-		foreach (Man man: players)
-		{
-			PlayerBase recipient = PlayerBase.Cast(man);
-			if (recipient && recipient.GetIdentity())
-			{
-				recipient.RPCSingleParam(-74700009, new Param1<int>(seconds), true, recipient.GetIdentity());
-				recipient.RPCSingleParam(-74700010, new Param1<string>(s_RoundLabel), true, recipient.GetIdentity());
-			}
-		}
+		DAFRPC.SendRoundTimeSeconds(seconds);
+		DAFRPC.SendRoundLabel(s_RoundLabel);
 	}
 
 	static void BroadcastSecondsTo(PlayerIdentity identity, int seconds)
 	{
-		array<Man> players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
-
-		foreach (Man man: players)
-		{
-			PlayerBase recipient = PlayerBase.Cast(man);
-			if (recipient && recipient.GetIdentity() == identity)
-			{
-				recipient.RPCSingleParam(-74700009, new Param1<int>(seconds), true, identity);
-				recipient.RPCSingleParam(-74700010, new Param1<string>(s_RoundLabel), true, identity);
-				return;
-			}
-		}
+		DAFRPC.SendRoundTimeSecondsTo(identity, seconds);
+		DAFRPC.SendRoundLabelTo(identity, s_RoundLabel);
 	}
 }

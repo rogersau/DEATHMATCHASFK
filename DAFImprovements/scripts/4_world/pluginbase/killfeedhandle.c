@@ -63,8 +63,6 @@ class KillFeedHandle : PluginBase
 	{
 		string murderName, targetName, murderWeaponData, message;
 		int dst, headshot, murderKills, murderDeaths, targetKills, targetDeaths;
-		PlayerBase recipient;
-		array<Man> players;
 
 		if (!victim)
 			return;
@@ -105,15 +103,7 @@ class KillFeedHandle : PluginBase
 			headshot = 0;
 		}
 
-		players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
-
-		for (int i = 0; i < players.Count(); i++)
-		{
-			recipient = PlayerBase.Cast(players[i]);
-			if (recipient && recipient.GetIdentity())
-				recipient.RPCSingleParam(-74700005, new Param7<string, string, string, int, string, int, int>(murderName, targetName, murderWeaponData, dst, message, type, headshot), true, recipient.GetIdentity());
-		}
+		DAFRPC.SendKillfeedItem(murderName, targetName, murderWeaponData, dst, message, type, headshot);
 
 		SendPlayerCount();
 	}
@@ -127,16 +117,7 @@ class KillFeedHandle : PluginBase
 
 	void SendPlayerCount()
 	{
-		array<Man> players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
-
-		int count = GetPlayerCount();
-		for (int i = 0; i < players.Count(); i++)
-		{
-			PlayerBase recipient = PlayerBase.Cast(players[i]);
-			if (recipient && recipient.GetIdentity())
-				recipient.RPCSingleParam(-74700006, new Param1<int>(count), true, recipient.GetIdentity());
-		}
+		DAFRPC.SendPlayerCount(GetPlayerCount());
 	}
 
 	string FormatRoundScoreName(string name, int kills, int deaths)
@@ -152,15 +133,7 @@ class KillFeedHandle : PluginBase
 
 	void SendRoundStatsReset()
 	{
-		array<Man> players = new array<Man>();
-		GetGame().GetWorld().GetPlayerList(players);
-
-		for (int i = 0; i < players.Count(); i++)
-		{
-			PlayerBase recipient = PlayerBase.Cast(players[i]);
-			if (recipient && recipient.GetIdentity())
-				recipient.RPCSingleParam(-74700008, new Param1<bool>(true), true, recipient.GetIdentity());
-		}
+		DAFRPC.SendKillfeedReset();
 	}
 
 	void EnsureRoundStats(PlayerIdentity identity)
