@@ -114,13 +114,11 @@ class DAFDMLowPopWarmup
 		return !m_Active && m_ActivationDueTime > 0;
 	}
 
-	/** True when infected damage from the given source should be blocked. */
 	bool ShouldBlockInfectedDamage(EntityAI source)
 	{
 		return m_Active && source && source.IsInherited(DayZInfected);
 	}
 
-	/** Status string for the player-count HUD ("Warmup Mode" or ""). */
 	string GetStatusString()
 	{
 		if (m_Active)

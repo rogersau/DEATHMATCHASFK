@@ -31,7 +31,6 @@ class DAFDMTeams
 		m_Settings = settings;
 	}
 
-	/** True when the given mode resolves to team deathmatch. */
 	static bool IsTeamMode(string mode)
 	{
 		mode.ToLower();
@@ -62,7 +61,6 @@ class DAFDMTeams
 		return team;
 	}
 
-	/** Resolve the team for a player, assigning one if none exists yet. */
 	string GetTeam(PlayerIdentity identity, string mode)
 	{
 		if (!identity)
@@ -75,13 +73,11 @@ class DAFDMTeams
 		return Assign(identity, mode);
 	}
 
-	/** Drop all assignments. Called at round start. */
 	void Reset()
 	{
 		m_TeamByPlayerId.Clear();
 	}
 
-	/** Number of players currently assigned to a team. */
 	int CountAssigned(string team)
 	{
 		int count = 0;
@@ -94,7 +90,6 @@ class DAFDMTeams
 		return count;
 	}
 
-	/** True when team is one of the configured team names (case-insensitive). */
 	bool IsValidTeam(string team)
 	{
 		if (!m_Settings || !m_Settings.teamNames)
