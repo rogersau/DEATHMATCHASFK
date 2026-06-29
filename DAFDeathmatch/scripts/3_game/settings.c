@@ -36,6 +36,7 @@ class DAFDMSettings
 	string arenaWallType = "Land_Castle_Wall1_20";
 	int corpseCleanupSeconds = 5;
 	int deathDropCleanupSeconds = 60;
+	bool enableUnconsciousness = true;
 	bool enableAdminTestCommands = false;
 	bool enablePlayerRespawnCommand = false;
 	bool enableDiscordKillfeed = false;

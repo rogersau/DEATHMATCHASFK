@@ -171,6 +171,58 @@ modded class PlayerBase extends ManBase
 		SetBrokenLegs(eBrokenLegs.NO_BROKEN_LEGS);
 	}
 
+	void DAF_NormalizeSurvivalStats()
+	{
+		if (!GetGame() || !GetGame().IsServer())
+			return;
+
+		GetStatEnergy().Set(GetStatEnergy().GetMax());
+		GetStatWater().Set(GetStatWater().GetMax());
+		GetStatHeatComfort().Set(0.0);
+
+		if (m_PlayerStomach)
+			m_PlayerStomach.ClearContents();
+
+		RemoveAllAgents();
+
+		ModifiersManager mods = GetModifiersManager();
+		if (!mods)
+		{
+			SetSynchDirty();
+			return;
+		}
+
+		mods.DeactivateModifier(eModifiers.MDF_BURNING);
+		mods.DeactivateModifier(eModifiers.MDF_FEVER);
+		mods.DeactivateModifier(eModifiers.MDF_COMMON_COLD);
+		mods.DeactivateModifier(eModifiers.MDF_POISONING);
+		mods.DeactivateModifier(eModifiers.MDF_INFLUENZA);
+		mods.DeactivateModifier(eModifiers.MDF_CHOLERA);
+		mods.DeactivateModifier(eModifiers.MDF_SALMONELLA);
+		mods.DeactivateModifier(eModifiers.MDF_VOMITSTUFFED);
+		mods.DeactivateModifier(eModifiers.MDF_WETNESS);
+		mods.DeactivateModifier(eModifiers.MDF_TOXICITY);
+		mods.DeactivateModifier(eModifiers.MDF_BREATH_VAPOUR);
+		mods.DeactivateModifier(eModifiers.MDF_WOUND_INFECTION);
+		mods.DeactivateModifier(eModifiers.MDF_WOUND_INFECTION1);
+		mods.DeactivateModifier(eModifiers.MDF_WOUND_INFECTION2);
+		mods.DeactivateModifier(eModifiers.MDF_CONTAMINATION1);
+		mods.DeactivateModifier(eModifiers.MDF_CONTAMINATION2);
+		mods.DeactivateModifier(eModifiers.MDF_CONTAMINATION3);
+		mods.DeactivateModifier(eModifiers.MDF_HEAVYMETAL1);
+		mods.DeactivateModifier(eModifiers.MDF_HEAVYMETAL2);
+		mods.DeactivateModifier(eModifiers.MDF_HEAVYMETAL3);
+		mods.DeactivateModifier(eModifiers.MDF_PNEUMONIA);
+		mods.DeactivateModifier(eModifiers.MDF_DROWNING);
+		mods.DeactivateModifier(eModifiers.MDF_HEART_ATTACK);
+		mods.DeactivateModifier(eModifiers.MDF_UNCONSCIOUSNESS);
+		mods.DeactivateModifier(eModifiers.MDF_BLINDED);
+		mods.DeactivateModifier(eModifiers.MDF_AREAEXPOSURE);
+		mods.DeactivateModifier(eModifiers.MDF_FLIES);
+
+		SetSynchDirty();
+	}
+
 	protected void DAF_DeleteSalineBagIV(EntityAI item)
 	{
 		if (DAF_IsSalineBagIV(item))

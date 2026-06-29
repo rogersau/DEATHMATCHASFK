@@ -92,6 +92,8 @@ class DAFDeathmatch
 		EnsureRoundReady();
 		m_Warmup.StartTick(this);
 		StartVoteTick();
+		DAFDMSurvivalNormalizer.StartTick();
+		DAFDMBrokenLegRepair.StartTick();
 		EvaluateWarmupState("start");
 		m_Discord.PostServerReady(m_Settings);
 	}
@@ -1075,6 +1077,8 @@ class DAFDeathmatch
 		player.SetPosition(position);
 		m_CurrentArena.FaceCenter(player);
 		EquipPlayer(player);
+		DAFDMSurvivalNormalizer.NormalizePlayer(player);
+		DAFDMBrokenLegRepair.RepairPlayer(player);
 		SendClientStateTo(player.GetIdentity());
 	}
 
@@ -1095,6 +1099,8 @@ class DAFDeathmatch
 		GetGame().SelectPlayer(identity, player);
 		m_CurrentArena.FaceCenter(player);
 		EquipPlayer(player);
+		DAFDMSurvivalNormalizer.NormalizePlayer(player);
+		DAFDMBrokenLegRepair.RepairPlayer(player);
 		SendClientStateTo(identity);
 		SendRespawnCursorFix(identity);
 	}
@@ -1123,6 +1129,8 @@ class DAFDeathmatch
 	void StartingEquipSetup(PlayerBase player)
 	{
 		EquipPlayer(player);
+		DAFDMSurvivalNormalizer.NormalizePlayer(player);
+		DAFDMBrokenLegRepair.RepairPlayer(player);
 	}
 
 	void EnsureRoundReady()
