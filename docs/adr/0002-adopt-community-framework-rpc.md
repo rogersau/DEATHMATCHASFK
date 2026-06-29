@@ -50,6 +50,14 @@ No caller outside `DAFRPC` changes.
 - **The wire format is unchanged by step 1.** The ids and `Param` shapes are identical to before, so this step is interoperable with already-deployed clients and is independently shippable.
 - **ADR 0001 is superseded, not erased.** Its caution about not bloating the dependency surface before the gameplay loop is proven was correct at the time; this ADR records that the condition it was waiting on (client CF already loaded, RPC debt needing centralization) has now arrived.
 
-## Open follow-on
+## Open follow-on — step 2 DEFERRED (2026-06-29)
 
-Step 2 (swap `DAFRPC` internals to Community Framework `ModRPC`) is tracked as the next change on this seam. It should land after this centralized seam is confirmed working on the live server, and it should be validated as a self-contained change since no caller outside `DAFRPC` is touched.
+Step 2 (swap `DAFRPC` internals to Community Framework `ModRPC`) is **deferred indefinitely**. The original ADR framed it as a clean zero-caller-change swap behind the seam. Reading the actual CF RPC API surfaced two costs the ADR did not account for:
+
+1. **Receive-side routing does not fit the seam shape.** Community Framework RPC does not deliver through vanilla `PlayerBase.OnRPC` — it intercepts its own id range and dispatches to handler functions registered on a singleton. The client UI state the round/HUD signals mutate (`s_KillFeed`, `s_DAF_PendingRoundSeconds`, the HUD widgets) is private to `DAFImprovements`' `PlayerBase`. Routing CF's receive path onto that state forces a choice: either `DAFImprovements` hard-depends on CF (it is currently CF-free and meant to be the generic addon), or a second client `PlayerBase` mod in `DAFDeathmatch` exposes a one-method public seam back into `DAFImprovements`. Neither is a zero-caller-change swap.
+
+2. **The marginal benefit is thin.** Step 2's only additional payoff over step 1 is CF-managed, conflict-free ids. The `-7470000x` range is already conflict-free in practice (negative, far from vanilla and other mods). Step 1 already captured the locality and leverage wins — centralized ids, no duplicated broadcast loops, cheap new signals.
+
+A future architecture review should not re-suggest step 2 unless one of these changes: the id range actually collides, CF becomes load-bearing for a different reason that justifies the receive-side restructure, or `DAFDeathmatch` fully absorbs the HUD widgets so `DAFImprovements` stops owning the receive state. Until then, `DAFRPC` stays on vanilla `RPCSingleParam`.
+
+Priority shifts to the `DAFDeathmatch` manager god class (currently ~2,770 lines owning ~14 unrelated responsibilities), which is a larger architectural payoff than step 2's marginal id benefit.

@@ -18,8 +18,7 @@ class DAFDeathmatch
 	private ref map<string, string> m_TeamByPlayerId;
 	private ref array<Object> m_RoundObjects;
 	private ref array<PlayerBase> m_TestDummies;
-	private ref array<PlayerBase> m_PendingCorpseCleanup;
-	private ref array<ref DAFDMDeathDrop> m_DeathDrops;
+	private ref DAFDMDeathFlow m_DeathFlow;
 	private bool m_WarmupActive;
 	private bool m_WarmupTickStarted;
 	private int m_WarmupActivationDueTime;
@@ -51,8 +50,7 @@ class DAFDeathmatch
 		m_TeamByPlayerId = new map<string, string>();
 		m_RoundObjects = new array<Object>();
 		m_TestDummies = new array<PlayerBase>();
-		m_PendingCorpseCleanup = new array<PlayerBase>();
-		m_DeathDrops = new array<ref DAFDMDeathDrop>();
+		m_DeathFlow = new DAFDMDeathFlow(m_Settings.corpseCleanupSeconds, m_Settings.deathDropCleanupSeconds);
 		m_WarmupActive = false;
 		m_WarmupTickStarted = false;
 		m_WarmupActivationDueTime = 0;
@@ -159,10 +157,7 @@ class DAFDeathmatch
 		HandleKillScore(victim, killer, weapon, headshot);
 
 		UntrackTestDummy(victim);
-		EntityAI deathDrop = HandleDeathDrop(victim);
-		DeleteCorpseInventory(victim, deathDrop);
-		TrackPendingCorpseCleanup(victim);
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.CleanupCorpse, m_Settings.corpseCleanupSeconds * 1000, false, victim);
+		m_DeathFlow.OnKilled(victim);
 
 		PlayerIdentity identity = victim.GetIdentity();
 		if (ShouldAutoRespawn(identity))
@@ -217,20 +212,7 @@ class DAFDeathmatch
 
 	void OnPlayerPickedUpItem(PlayerBase player, EntityAI item)
 	{
-		if (!player || !item)
-			return;
-
-		for (int i = m_DeathDrops.Count() - 1; i >= 0; i--)
-		{
-			DAFDMDeathDrop drop = m_DeathDrops[i];
-			if (!drop || drop.weapon != item)
-				continue;
-
-			HandleDeathDropPickup(player, drop);
-
-			m_DeathDrops.Remove(i);
-			return;
-		}
+		m_DeathFlow.OnItemPickedUp(player, item);
 	}
 
 	void OnEvent(EventType eventTypeId, Param params)
@@ -641,7 +623,7 @@ class DAFDeathmatch
 		}
 
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 mode=%2 team=%3 arena=%4 pool=%5 loadout=%6 hands=%7", GetRoundDisplayName(), mode, team, arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
-		DAFDMChat.MessagePlayer(source, string.Format("Inspect: dummies=%1 drops=%2 corpses=%3 dropTtl=%4s corpseTtl=%5s", GetActiveTestDummyCount(), GetActiveDeathDropCount(), GetPendingCorpseCleanupCount(), m_Settings.deathDropCleanupSeconds, m_Settings.corpseCleanupSeconds));
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: dummies=%1 drops=%2 corpses=%3 dropTtl=%4s corpseTtl=%5s", GetActiveTestDummyCount(), m_DeathFlow.GetActiveDeathDropCount(), m_DeathFlow.GetPendingCorpseCleanupCount(), m_Settings.deathDropCleanupSeconds, m_Settings.corpseCleanupSeconds));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: spawnSafety=%1 minPlayer=%2m minEnemy=%3m view=%4m angle=%5deg", m_Settings.enableSpawnSafety, m_Settings.spawnSafetyMinPlayerDistance, m_Settings.spawnSafetyMinEnemyDistance, m_Settings.spawnSafetyEnemyViewDistance, m_Settings.spawnSafetyEnemyViewAngleDegrees));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: warmup=%1 pending=%2 infected=%3 threshold=%4 delay=%5s", m_WarmupActive, IsWarmupPending(), GetActiveWarmupInfectedCount(), m_Settings.warmupPlayerThreshold, m_Settings.warmupActivateDelaySeconds));
 		DAFDMChat.MessagePlayer(source, "Inspect: " + m_Votes.GetActiveSummary());
@@ -1481,7 +1463,7 @@ class DAFDeathmatch
 		if (weaponBase && bonusType != "")
 			weaponBase.SpawnAmmo(bonusType, Weapon_Base.SAMF_DEFAULT);
 
-		TrackDeathDrop(weapon, "DAF_TEST_DROP", bonusType);
+		m_DeathFlow.TrackDeathDrop(weapon, "DAF_TEST_DROP", bonusType);
 		DAFDMChat.MessagePlayer(source, string.Format("Spawned test drop: %1 bonus=%2", weapon.GetType(), bonusType));
 	}
 
@@ -2121,7 +2103,7 @@ class DAFDeathmatch
 	{
 		CleanupWarmupInfected();
 		ClearTestDummies();
-		m_PendingCorpseCleanup.Clear();
+		m_DeathFlow.CleanupAll();
 
 		foreach (Object roundObject: m_RoundObjects)
 		{
@@ -2130,17 +2112,6 @@ class DAFDeathmatch
 		}
 
 		m_RoundObjects.Clear();
-		CleanupDeathDrops();
-	}
-
-	void CleanupCorpse(PlayerBase player)
-	{
-		UntrackPendingCorpseCleanup(player);
-		if (player && !player.IsAlive())
-		{
-			GetGame().ObjectDelete(player);
-			Print("DAFDeathmatch: cleaned pending corpse");
-		}
 	}
 
 	bool IsTestDummy(PlayerBase player)
@@ -2176,157 +2147,6 @@ class DAFDeathmatch
 		foreach (PlayerBase dummy: m_TestDummies)
 		{
 			if (dummy)
-				count++;
-		}
-
-		return count;
-	}
-
-	void TrackPendingCorpseCleanup(PlayerBase player)
-	{
-		if (player && m_PendingCorpseCleanup.Find(player) < 0)
-			m_PendingCorpseCleanup.Insert(player);
-	}
-
-	void UntrackPendingCorpseCleanup(PlayerBase player)
-	{
-		if (!player)
-			return;
-
-		int index = m_PendingCorpseCleanup.Find(player);
-		if (index >= 0)
-			m_PendingCorpseCleanup.Remove(index);
-	}
-
-	int GetPendingCorpseCleanupCount()
-	{
-		int count = 0;
-		foreach (PlayerBase corpse: m_PendingCorpseCleanup)
-		{
-			if (corpse)
-				count++;
-		}
-
-		return count;
-	}
-
-	EntityAI HandleDeathDrop(PlayerBase victim)
-	{
-		EntityAI inHands = victim.GetHumanInventory().GetEntityInHands();
-		Weapon_Base weapon = Weapon_Base.Cast(inHands);
-		if (!weapon)
-			return null;
-
-		string ownerId = "";
-		if (victim.GetIdentity())
-			ownerId = victim.GetIdentity().GetId();
-
-		victim.GetHumanInventory().DropEntity(InventoryMode.SERVER, victim, weapon);
-		TrackDeathDrop(weapon, ownerId, GetPrimaryMagazineType(weapon));
-		return weapon;
-	}
-
-	void TrackDeathDrop(EntityAI weapon, string ownerId, string magazineType)
-	{
-		if (!weapon)
-			return;
-
-		m_DeathDrops.Insert(new DAFDMDeathDrop(weapon, ownerId, magazineType));
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.DeleteDeathDrop, m_Settings.deathDropCleanupSeconds * 1000, false, weapon);
-		PrintFormat("DAFDeathmatch: tracked death drop weapon=%1 owner=%2 bonus=%3 ttl=%4s", weapon.GetType(), ownerId, magazineType, m_Settings.deathDropCleanupSeconds);
-	}
-
-	void HandleDeathDropPickup(PlayerBase player, DAFDMDeathDrop drop)
-	{
-		if (!player || !drop)
-			return;
-
-		string pickerId = "";
-		if (player.GetIdentity())
-			pickerId = player.GetIdentity().GetId();
-
-		bool grantBonus = pickerId != "" && pickerId != drop.ownerId && drop.magazineType != "";
-		if (grantBonus)
-		{
-			EntityAI bonus = player.GetHumanInventory().CreateInInventory(drop.magazineType);
-			if (bonus)
-				PrintFormat("DAFDeathmatch: death drop picked up by %1; granted bonus %2", pickerId, drop.magazineType);
-			else
-				PrintFormat("DAFDeathmatch: death drop picked up by %1; failed to grant bonus %2", pickerId, drop.magazineType);
-		}
-		else
-		{
-			PrintFormat("DAFDeathmatch: death drop picked up by %1; no bonus granted", pickerId);
-		}
-	}
-
-	string GetPrimaryMagazineType(Weapon_Base weapon)
-	{
-		if (!weapon)
-			return "";
-
-		for (int i = 0; i < weapon.GetMuzzleCount(); i++)
-		{
-			Magazine magazine = weapon.GetMagazine(i);
-			if (magazine)
-				return magazine.GetType();
-		}
-
-		return "";
-	}
-
-	void DeleteCorpseInventory(PlayerBase victim, EntityAI deathDrop)
-	{
-		if (!victim)
-			return;
-
-		array<EntityAI> items = new array<EntityAI>();
-		victim.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
-		foreach (EntityAI item: items)
-		{
-			if (item && item != deathDrop)
-				GetGame().ObjectDelete(item);
-		}
-	}
-
-	void DeleteDeathDrop(EntityAI weapon)
-	{
-		bool tracked = false;
-		for (int i = m_DeathDrops.Count() - 1; i >= 0; i--)
-		{
-			DAFDMDeathDrop drop = m_DeathDrops[i];
-			if (drop && drop.weapon == weapon)
-			{
-				tracked = true;
-				m_DeathDrops.Remove(i);
-			}
-		}
-
-		if (tracked && weapon)
-		{
-			GetGame().ObjectDelete(weapon);
-			Print("DAFDeathmatch: cleaned expired death drop");
-		}
-	}
-
-	void CleanupDeathDrops()
-	{
-		for (int i = m_DeathDrops.Count() - 1; i >= 0; i--)
-		{
-			DAFDMDeathDrop drop = m_DeathDrops[i];
-			if (drop && drop.weapon)
-				GetGame().ObjectDelete(drop.weapon);
-		}
-
-		m_DeathDrops.Clear();
-	}
-
-	int GetActiveDeathDropCount()
-	{
-		int count = 0;
-		foreach (DAFDMDeathDrop drop: m_DeathDrops)
-		{
-			if (drop && drop.weapon)
 				count++;
 		}
 
@@ -2701,20 +2521,6 @@ class DAFDeathmatch
 	DAFDMSettings GetSettings()
 	{
 		return m_Settings;
-	}
-}
-
-class DAFDMDeathDrop
-{
-	EntityAI weapon;
-	string ownerId;
-	string magazineType;
-
-	void DAFDMDeathDrop(EntityAI dropWeapon, string dropOwnerId, string dropMagazineType)
-	{
-		weapon = dropWeapon;
-		ownerId = dropOwnerId;
-		magazineType = dropMagazineType;
 	}
 }
 
