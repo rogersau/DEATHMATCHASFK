@@ -43,8 +43,17 @@ class DAFDMSettings
 	string discordKillfeedWebhookUrl = "";
 	bool enableDiscordServerEvents = false;
 	string discordServerEventsWebhookUrl = "";
+	bool enableDiscordSeasonSummary = false;
+	string discordSeasonSummaryWebhookUrl = "";
 	string discordServerName = "";
 	bool discordSuppressEmbeds = false;
+	bool enableSeasonScoring = true;
+	int seasonKillPoints = 3;
+	int seasonHeadshotBonusPoints = 2;
+	int seasonAssistPoints = 1;
+	int seasonAssistWindowSeconds = 20;
+	int seasonSummaryIntervalDays = 7;
+	int seasonSummaryTopPlayers = 10;
 	bool enableVoting = true;
 	bool enableEndRoundVote = true;
 	bool enableArenaVote = true;
@@ -127,6 +136,24 @@ class DAFDMSettings
 
 		if (deathDropCleanupSeconds < 1)
 			deathDropCleanupSeconds = 60;
+
+		if (seasonKillPoints < 0)
+			seasonKillPoints = 3;
+
+		if (seasonHeadshotBonusPoints < 0)
+			seasonHeadshotBonusPoints = 2;
+
+		if (seasonAssistPoints < 0)
+			seasonAssistPoints = 1;
+
+		if (seasonAssistWindowSeconds < 1)
+			seasonAssistWindowSeconds = 20;
+
+		if (seasonSummaryIntervalDays < 1)
+			seasonSummaryIntervalDays = 7;
+
+		if (seasonSummaryTopPlayers < 1)
+			seasonSummaryTopPlayers = 10;
 
 		if (voteMinimumPlayers < 1)
 			voteMinimumPlayers = 2;

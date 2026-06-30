@@ -48,12 +48,20 @@ class DAFDMLoadoutEngine
 		if (player.GetIdentity())
 			playerId = player.GetIdentity().GetId();
 
-		m_LastPrimaryTypeByPlayer.Set(playerId, "");
-		m_LastSecondaryTypeByPlayer.Set(playerId, "");
-		if (primary)
-			m_LastPrimaryTypeByPlayer.Set(playerId, primary.GetType());
-		if (secondary)
-			m_LastSecondaryTypeByPlayer.Set(playerId, secondary.GetType());
+		if (playerId != "")
+		{
+			m_LastPrimaryTypeByPlayer.Set(playerId, "");
+			m_LastSecondaryTypeByPlayer.Set(playerId, "");
+			if (primary)
+				m_LastPrimaryTypeByPlayer.Set(playerId, primary.GetType());
+			if (secondary)
+				m_LastSecondaryTypeByPlayer.Set(playerId, secondary.GetType());
+		}
+
+		EntityAI loadoutKnife = null;
+		EntityAI loadoutMorphine = null;
+		EntityAI loadoutBandage = null;
+		EntityAI loadoutSaline = null;
 
 		foreach (DAFDMLoadoutItemConfig itemConfig: loadout.items)
 		{
@@ -63,9 +71,12 @@ class DAFDMLoadoutEngine
 			EntityAI item = inventory.CreateInInventory(itemConfig.type);
 			if (item && itemConfig.quickbarSlot >= 0)
 				player.SetQuickBarEntityShortcut(item, itemConfig.quickbarSlot, true);
+
+			if (item)
+				CaptureSurvivalItem(item, loadoutKnife, loadoutMorphine, loadoutBandage, loadoutSaline);
 		}
 
-		NormalizeLoadoutHotbar(player, primary, secondary, true);
+		NormalizeLoadoutHotbar(player, primary, secondary, true, loadoutKnife, loadoutMorphine, loadoutBandage, loadoutSaline);
 		ScheduleLoadoutHotbarResync(player);
 	}
 
@@ -78,7 +89,7 @@ class DAFDMLoadoutEngine
 		return loadoutName;
 	}
 
-	private void NormalizeLoadoutHotbar(PlayerBase player, EntityAI primary, EntityAI secondary, bool createMissingSurvivalItems)
+	private void NormalizeLoadoutHotbar(PlayerBase player, EntityAI primary, EntityAI secondary, bool createMissingSurvivalItems, EntityAI preferredKnife = null, EntityAI preferredMorphine = null, EntityAI preferredBandage = null, EntityAI preferredSaline = null)
 	{
 		if (!player)
 			return;
@@ -89,24 +100,32 @@ class DAFDMLoadoutEngine
 		if (secondary)
 			player.SetQuickBarEntityShortcut(secondary, 1, true);
 
-		EntityAI knife = null;
-		EntityAI morphine = null;
-		EntityAI bandage = null;
-		EntityAI saline = null;
+		EntityAI knife = preferredKnife;
+		EntityAI morphine = preferredMorphine;
+		EntityAI bandage = preferredBandage;
+		EntityAI saline = preferredSaline;
 
 		if (createMissingSurvivalItems)
 		{
-			knife = EnsureKnife(player);
-			morphine = EnsureLoadoutItem(player, "Morphine", "morphine");
-			bandage = EnsureLoadoutItem(player, "BandageDressing", "bandage");
-			saline = EnsureLoadoutItem(player, "SalineBagIV", "saline");
+			if (!knife)
+				knife = EnsureKnife(player);
+			if (!morphine)
+				morphine = EnsureLoadoutItem(player, "Morphine", "morphine");
+			if (!bandage)
+				bandage = EnsureLoadoutItem(player, "BandageDressing", "bandage");
+			if (!saline)
+				saline = EnsureLoadoutItem(player, "SalineBagIV", "saline");
 		}
 		else
 		{
-			knife = FindKnife(player);
-			morphine = FindLoadoutItem(player, "Morphine");
-			bandage = FindLoadoutItem(player, "BandageDressing");
-			saline = FindLoadoutItem(player, "SalineBagIV");
+			if (!knife)
+				knife = FindKnife(player);
+			if (!morphine)
+				morphine = FindLoadoutItem(player, "Morphine");
+			if (!bandage)
+				bandage = FindLoadoutItem(player, "BandageDressing");
+			if (!saline)
+				saline = FindLoadoutItem(player, "SalineBagIV");
 		}
 
 		if (knife)
@@ -164,6 +183,33 @@ class DAFDMLoadoutEngine
 		NormalizeLoadoutHotbar(player, primary, secondary, false);
 	}
 
+	private void CaptureSurvivalItem(EntityAI item, out EntityAI knife, out EntityAI morphine, out EntityAI bandage, out EntityAI saline)
+	{
+		if (!item)
+			return;
+
+		if (!knife && IsKnife(item))
+		{
+			knife = item;
+			return;
+		}
+
+		if (!morphine && item.IsKindOf("Morphine"))
+		{
+			morphine = item;
+			return;
+		}
+
+		if (!bandage && item.IsKindOf("BandageDressing"))
+		{
+			bandage = item;
+			return;
+		}
+
+		if (!saline && item.IsKindOf("SalineBagIV"))
+			saline = item;
+	}
+
 	private EntityAI EnsureKnife(PlayerBase player)
 	{
 		EntityAI existing = FindKnife(player);
@@ -188,6 +234,20 @@ class DAFDMLoadoutEngine
 		knifeTypes.Insert("SteakKnife");
 		knifeTypes.Insert("StoneKnife");
 		return FindInventoryItemAny(player, knifeTypes);
+	}
+
+	private bool IsKnife(EntityAI item)
+	{
+		if (!item)
+			return false;
+
+		TStringArray knifeTypes = new TStringArray();
+		knifeTypes.Insert("CombatKnife");
+		knifeTypes.Insert("HuntingKnife");
+		knifeTypes.Insert("KitchenKnife");
+		knifeTypes.Insert("SteakKnife");
+		knifeTypes.Insert("StoneKnife");
+		return ItemMatchesAnyType(item, knifeTypes);
 	}
 
 	private EntityAI EnsureLoadoutItem(PlayerBase player, string type, string label)
@@ -370,7 +430,12 @@ class DAFDMLoadoutEngine
 
 		string lastEntry;
 		m_LastLoadoutByPlayer.Find(id, lastEntry);
-		DAFDMLoadoutEntryConfig loadout = m_Loadouts.PickEntry(poolName, lastEntry);
+		string lastPrimaryType;
+		string lastSecondaryType;
+		m_LastPrimaryTypeByPlayer.Find(id, lastPrimaryType);
+		m_LastSecondaryTypeByPlayer.Find(id, lastSecondaryType);
+
+		DAFDMLoadoutEntryConfig loadout = m_Loadouts.PickEntry(poolName, lastEntry, lastPrimaryType, lastSecondaryType);
 		if (loadout)
 			m_LastLoadoutByPlayer.Set(id, loadout.name);
 

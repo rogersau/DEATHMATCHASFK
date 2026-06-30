@@ -1,11 +1,22 @@
 FrameWidgetClass PlayerCountRoot {
  position 30 100
- size 300 68
+ size 300 104
  hexactpos 1
  vexactpos 1
  hexactsize 1
  vexactsize 1
  {
+  PanelWidgetClass Background {
+   ignorepointer 1
+   color 0.3059 0.3059 0.3059 0.2627
+   position -8 0
+   size 260 104
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+  }
   TextWidgetClass PlayerCount {
    ignorepointer 1
    color 1 1 1 0.85
@@ -25,7 +36,7 @@ FrameWidgetClass PlayerCountRoot {
   FrameWidgetClass RoundStatsRoot {
    ignorepointer 1
    position 0 34
-   size 300 30
+   size 300 36
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -35,7 +46,7 @@ FrameWidgetClass PlayerCountRoot {
      ignorepointer 1
      color 1 1 1 0.85
      position 0 2
-     size 24 28
+     size 32 32
      hexactpos 1
      vexactpos 1
      hexactsize 1
@@ -44,6 +55,7 @@ FrameWidgetClass PlayerCountRoot {
      image0 "DAFImprovements/assets/icons/kills.paa"
      mode blend
      "src alpha" 1
+     stretch 1
      "clamp mode" clamp
      filter 1
      nocache 0
@@ -51,8 +63,8 @@ FrameWidgetClass PlayerCountRoot {
     TextWidgetClass KillsCount {
      ignorepointer 1
      color 1 1 1 0.85
-     position 26 0
-     size 46 28
+     position 36 2
+     size 42 32
      hexactpos 1
      vexactpos 1
      hexactsize 1
@@ -65,8 +77,8 @@ FrameWidgetClass PlayerCountRoot {
     ImageWidgetClass DeathsIcon {
      ignorepointer 1
      color 1 1 1 0.85
-     position 82 2
-     size 24 28
+     position 90 2
+     size 32 32
      hexactpos 1
      vexactpos 1
      hexactsize 1
@@ -75,6 +87,7 @@ FrameWidgetClass PlayerCountRoot {
      image0 "DAFImprovements/assets/icons/deaths.paa"
      mode blend
      "src alpha" 1
+     stretch 1
      "clamp mode" clamp
      filter 1
      nocache 0
@@ -82,8 +95,8 @@ FrameWidgetClass PlayerCountRoot {
     TextWidgetClass DeathsCount {
      ignorepointer 1
      color 1 1 1 0.85
-     position 108 0
-     size 46 28
+     position 126 2
+     size 42 32
      hexactpos 1
      vexactpos 1
      hexactsize 1
@@ -94,6 +107,23 @@ FrameWidgetClass PlayerCountRoot {
      "text valign" center
     }
    }
+  }
+  TextWidgetClass SeasonStats {
+   ignorepointer 1
+   color 1 1 1 0.85
+   position 0 72
+   size 260 28
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "Season: 0 pts | -"
+   text_proportion 0.62
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" left
+   "text valign" center
   }
  }
 }

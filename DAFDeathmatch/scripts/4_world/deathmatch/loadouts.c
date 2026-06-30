@@ -66,7 +66,7 @@ class DAFDMLoadoutRegistry
 		PrintFormat("DAFDeathmatch: loaded %1 loadout pools", m_Pools.Count());
 	}
 
-	DAFDMLoadoutEntryConfig PickEntry(string poolName, string lastEntryName)
+	DAFDMLoadoutEntryConfig PickEntry(string poolName, string lastEntryName, string lastPrimaryType = "", string lastSecondaryType = "")
 	{
 		DAFDMLoadoutPoolConfig pool = GetPool(poolName);
 		if (!pool || pool.entries.Count() == 0)
@@ -79,7 +79,7 @@ class DAFDMLoadoutRegistry
 		if (picked && picked.name == lastEntryName && pool.entries.Count() > 1)
 			picked = PickWeighted(pool);
 
-		ResolveWeaponPools(picked);
+		ResolveWeaponPools(picked, lastPrimaryType, lastSecondaryType);
 		return picked;
 	}
 
@@ -137,16 +137,16 @@ class DAFDMLoadoutRegistry
 		m_Pools.Insert(MakePool("juiced", "AKM", "AK_PlasticHndgrd", "AK_PlasticBttstck", "PSO1Optic", "Mag_AKM_30Rnd", "Deagle", "Mag_Deagle_9rnd"));
 	}
 
-	private void ResolveWeaponPools(DAFDMLoadoutEntryConfig entry)
+	private void ResolveWeaponPools(DAFDMLoadoutEntryConfig entry, string lastPrimaryType, string lastSecondaryType)
 	{
 		if (!entry)
 			return;
 
 		if (entry.primaryWeapons && entry.primaryWeapons.Count() > 0)
-			entry.primary = ResolveWeapon(PickWeightedWeapon(entry.primaryWeapons), 0);
+			entry.primary = ResolveWeaponFromPool(entry.primaryWeapons, 0, lastPrimaryType);
 
 		if (entry.secondaryWeapons && entry.secondaryWeapons.Count() > 0)
-			entry.secondary = ResolveWeapon(PickWeightedWeapon(entry.secondaryWeapons), 1);
+			entry.secondary = ResolveWeaponFromPool(entry.secondaryWeapons, 1, lastSecondaryType);
 	}
 
 	private DAFDMWeaponPoolConfig PickWeightedWeapon(array<ref DAFDMWeaponPoolConfig> weapons)
@@ -176,13 +176,26 @@ class DAFDMLoadoutRegistry
 		return null;
 	}
 
-	private DAFDMLoadoutWeaponConfig ResolveWeapon(DAFDMWeaponPoolConfig poolWeapon, int quickbarSlot)
+	private DAFDMLoadoutWeaponConfig ResolveWeaponFromPool(array<ref DAFDMWeaponPoolConfig> weapons, int quickbarSlot, string lastType)
+	{
+		DAFDMLoadoutWeaponConfig weapon = ResolveWeapon(PickWeightedWeapon(weapons), quickbarSlot, lastType);
+		if (weapon && weapon.type == lastType && HasAlternativeWeaponType(weapons, lastType))
+		{
+			DAFDMLoadoutWeaponConfig rerolled = ResolveWeapon(PickWeightedWeapon(weapons), quickbarSlot, lastType);
+			if (rerolled)
+				weapon = rerolled;
+		}
+
+		return weapon;
+	}
+
+	private DAFDMLoadoutWeaponConfig ResolveWeapon(DAFDMWeaponPoolConfig poolWeapon, int quickbarSlot, string lastType)
 	{
 		if (!poolWeapon || !poolWeapon.variants || poolWeapon.variants.Count() == 0)
 			return null;
 
 		DAFDMLoadoutWeaponConfig weapon = new DAFDMLoadoutWeaponConfig();
-		weapon.type = poolWeapon.variants.GetRandomElement();
+		weapon.type = PickWeaponVariant(poolWeapon.variants, lastType);
 		weapon.quickbarSlot = quickbarSlot;
 		foreach (string variant: poolWeapon.variants)
 		{
@@ -214,6 +227,38 @@ class DAFDMLoadoutRegistry
 		}
 
 		return weapon;
+	}
+
+	private string PickWeaponVariant(TStringArray variants, string lastType)
+	{
+		if (!variants || variants.Count() == 0)
+			return "";
+
+		string picked = variants.GetRandomElement();
+		if (picked == lastType && variants.Count() > 1)
+			picked = variants.GetRandomElement();
+
+		return picked;
+	}
+
+	private bool HasAlternativeWeaponType(array<ref DAFDMWeaponPoolConfig> weapons, string lastType)
+	{
+		if (!weapons || lastType == "")
+			return false;
+
+		foreach (DAFDMWeaponPoolConfig weaponPool: weapons)
+		{
+			if (!weaponPool || !weaponPool.variants)
+				continue;
+
+			foreach (string variant: weaponPool.variants)
+			{
+				if (variant != "" && variant != lastType)
+					return true;
+			}
+		}
+
+		return false;
 	}
 
 	private DAFDMLoadoutPoolConfig MakePool(string poolName, string primaryType, string attachment1, string attachment2, string optic, string primaryMag, string secondaryType, string secondaryMag)

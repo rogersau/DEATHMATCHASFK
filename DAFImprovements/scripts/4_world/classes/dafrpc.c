@@ -32,7 +32,7 @@ class DAFRPC
 	static const int RPC_ROUND_LABEL          = -74700010; // Param1<string>
 	static const int RPC_PLAYER_COUNT_STATUS  = -74700011; // Param2<int, string>
 	static const int RPC_ROUND_HUD_STATE      = -74700012; // Param5<int, string, int, string, bool>
-	static const int RPC_ROUND_STATS          = -74700013; // Param2<int, int>
+	static const int RPC_ROUND_STATS          = -74700013; // Param4<int, int, int, int>
 
 	// ---------------------------------------------------------------------------
 	// Server -> client send helpers. Only call these on the server.
@@ -68,14 +68,14 @@ class DAFRPC
 	}
 
 	/** Push a player's own round K/D stats to that player. */
-	static void SendRoundStats(PlayerIdentity identity, int kills, int deaths)
+	static void SendRoundStats(PlayerIdentity identity, int kills, int deaths, int seasonPoints = 0, int seasonRank = 0)
 	{
 		if (!identity)
 			return;
 
 		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
 		if (recipient)
-			recipient.RPCSingleParam(RPC_ROUND_STATS, new Param2<int, int>(kills, deaths), true, identity);
+			recipient.RPCSingleParam(RPC_ROUND_STATS, new Param4<int, int, int, int>(kills, deaths, seasonPoints, seasonRank), true, identity);
 	}
 
 	/** Push zeroed round K/D stats to every connected player. */

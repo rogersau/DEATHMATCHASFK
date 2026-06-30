@@ -131,6 +131,11 @@ class DAFDMDiscord
 		return settings && settings.enableDiscordServerEvents && WebhookReady(settings.discordServerEventsWebhookUrl);
 	}
 
+	bool SeasonSummaryEnabled(DAFDMSettings settings)
+	{
+		return settings && settings.enableDiscordSeasonSummary && WebhookReady(settings.discordSeasonSummaryWebhookUrl);
+	}
+
 	bool WebhookReady(string url)
 	{
 		return url != "" && (url.IndexOf(WEBHOOK_HOST_HINT) >= 0 || url.IndexOf(LEGACY_WEBHOOK_HOST_HINT) >= 0);
@@ -211,6 +216,16 @@ class DAFDMDiscord
 		PostJson(settings.discordServerEventsWebhookUrl, payload);
 	}
 
+	void PostSeasonSummary(DAFDMSettings settings, string summary)
+	{
+		if (!SeasonSummaryEnabled(settings))
+			return;
+
+		string serverName = ResolveServerName(settings);
+		string payload = BuildEmbedPayload(settings.discordSuppressEmbeds, serverName + " weekly season ranks", summary, 5763719);
+		PostJson(settings.discordSeasonSummaryWebhookUrl, payload);
+	}
+
 	string BuildRoundSummary(DAFDMScoreboard scoreboard, string gameMode, array<string> teamNames)
 	{
 		string summary = "";
@@ -263,7 +278,7 @@ class DAFDMDiscord
 		return summary;
 	}
 
-	bool TestEndpoint(DAFDMSettings settings, bool killfeed)
+	bool TestEndpoint(DAFDMSettings settings, string endpoint)
 	{
 		if (!settings)
 		{
@@ -274,17 +289,23 @@ class DAFDMDiscord
 		bool enabled;
 		string url;
 		string label;
-		if (killfeed)
+		if (endpoint == "killfeed")
 		{
 			enabled = settings.enableDiscordKillfeed;
 			url = settings.discordKillfeedWebhookUrl;
 			label = "killfeed";
 		}
-		else
+		else if (endpoint == "events")
 		{
 			enabled = settings.enableDiscordServerEvents;
 			url = settings.discordServerEventsWebhookUrl;
 			label = "events";
+		}
+		else
+		{
+			enabled = settings.enableDiscordSeasonSummary;
+			url = settings.discordSeasonSummaryWebhookUrl;
+			label = "season";
 		}
 
 		if (!enabled)

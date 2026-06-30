@@ -44,6 +44,16 @@ class DAFDMLowPopWarmup
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(manager.WarmupTick, m_Settings.warmupTickSeconds * 1000, true);
 	}
 
+	void RestartTick(DAFDeathmatch manager)
+	{
+		if (!manager)
+			return;
+
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(manager.WarmupTick);
+		m_TickStarted = false;
+		StartTick(manager);
+	}
+
 	/**
 	 * Recurring tick. Re-evaluates warmup state, then (if active and a round is
 	 * running in an arena) maintains infected and refills ammo. Returns true

@@ -83,6 +83,17 @@ modded class PlayerBase
 
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 
+		DAFDeathmatch deathmatch = GetDAFDeathmatch();
+		if (deathmatch && GetGame().IsServer() && IsAlive())
+		{
+			PlayerBase attacker;
+			if (source)
+				attacker = PlayerBase.Cast(source.GetHierarchyRootPlayer());
+
+			if (attacker)
+				deathmatch.OnPlayerDamaged(this, attacker);
+		}
+
 		if (GetGame().IsServer() && IsAlive() && damageType == DamageType.FIRE_ARM && !hadBrokenLegRisk && DAFDM_HasBrokenLegRisk())
 			DAFDM_PreventGunshotBrokenLegs();
 	}

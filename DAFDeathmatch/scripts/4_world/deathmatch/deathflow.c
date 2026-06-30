@@ -40,6 +40,11 @@ class DAFDMDeathFlow
 
 	void DAFDMDeathFlow(int corpseCleanupSeconds, int deathDropCleanupSeconds)
 	{
+		Configure(corpseCleanupSeconds, deathDropCleanupSeconds);
+	}
+
+	void Configure(int corpseCleanupSeconds, int deathDropCleanupSeconds)
+	{
 		m_CorpseCleanupSeconds = corpseCleanupSeconds;
 		m_DeathDropCleanupSeconds = deathDropCleanupSeconds;
 	}

@@ -351,9 +351,16 @@ class DAFDMArenaRegistry
 
 	DAFDMArena GetByName(string name)
 	{
+		string requested = name;
+		requested.ToLower();
 		foreach (DAFDMArena arena: m_Arenas)
 		{
-			if (arena && arena.GetName() == name)
+			if (!arena)
+				continue;
+
+			string candidate = arena.GetName();
+			candidate.ToLower();
+			if (candidate == requested)
 				return arena;
 		}
 

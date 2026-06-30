@@ -26,6 +26,7 @@ class DAFDeathmatch
 	private static const int COMMAND_TESTDROP = 24;
 	private static const int COMMAND_RELOADCONFIG = 25;
 	private static const int COMMAND_DISCORDTEST = 26;
+	private static const int COMMAND_RANK = 27;
 
 	private ref DAFDMSettings m_Settings;
 	private ref DAFDMArenaRegistry m_Arenas;
@@ -50,8 +51,10 @@ class DAFDeathmatch
 	private ref DAFDMLowPopWarmup m_Warmup;
 	private ref DAFDMDiscord m_Discord;
 	private ref DAFDMVoteManager m_Votes;
+	private ref DAFDMSeason m_Season;
 	private ref map<string, int> m_CommandRoutes;
 	private bool m_VoteTickStarted;
+	private bool m_SeasonSummaryTickStarted;
 
 	void DAFDeathmatch()
 	{
@@ -81,9 +84,12 @@ class DAFDeathmatch
 		m_Warmup = new DAFDMLowPopWarmup(m_Settings);
 		m_Discord = new DAFDMDiscord();
 		m_Votes = new DAFDMVoteManager();
+		m_Season = new DAFDMSeason();
+		m_Season.Load();
 		m_CommandRoutes = new map<string, int>();
 		RegisterCommandRoutes();
 		m_VoteTickStarted = false;
+		m_SeasonSummaryTickStarted = false;
 		ApplyWeaponFireModeSetting();
 	}
 
@@ -92,10 +98,12 @@ class DAFDeathmatch
 		EnsureRoundReady();
 		m_Warmup.StartTick(this);
 		StartVoteTick();
+		StartSeasonSummaryTick();
 		DAFDMSurvivalNormalizer.StartTick();
 		DAFDMBrokenLegRepair.StartTick();
 		EvaluateWarmupState("start");
 		m_Discord.PostServerReady(m_Settings);
+		SeasonSummaryTick();
 	}
 
 	void StartRound()
@@ -161,6 +169,7 @@ class DAFDeathmatch
 		EvaluateWarmupState("player connected");
 		if (player.GetIdentity())
 		{
+			m_Season.EnsurePlayer(player.GetIdentity());
 			SendClientStateTo(player.GetIdentity());
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendClientStateTo, 1000, false, player.GetIdentity());
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendClientStateTo, 3000, false, player.GetIdentity());
@@ -174,6 +183,7 @@ class DAFDeathmatch
 			return;
 
 		m_Scoreboard.ResetPlayer(identity);
+		m_Season.EnsurePlayer(identity);
 		m_Teams.Assign(identity, m_CurrentGameMode);
 		EvaluateWarmupState("player reset");
 		SendClientStateTo(identity);
@@ -193,9 +203,29 @@ class DAFDeathmatch
 		SendScoreHudTo(identity);
 		if (killer)
 			SendScoreHudTo(killer.GetIdentity());
+		BroadcastScoreHud();
 
 		if (ShouldAutoRespawn(identity))
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnIdentity, m_Settings.respawnSeconds * 1000, false, identity, victim);
+	}
+
+	void OnPlayerDamaged(PlayerBase victim, PlayerBase attacker)
+	{
+		if (!victim || !attacker || victim == attacker)
+			return;
+
+		if (IsTestDummy(victim) || IsTestDummy(attacker))
+			return;
+
+		if (IsTeamRound())
+		{
+			string victimTeam = m_Teams.GetTeam(victim.GetIdentity(), m_CurrentGameMode);
+			string attackerTeam = m_Teams.GetTeam(attacker.GetIdentity(), m_CurrentGameMode);
+			if (victimTeam != "" && victimTeam == attackerTeam)
+				return;
+		}
+
+		m_Season.RegisterDamage(victim, attacker, m_Settings.seasonAssistWindowSeconds);
 	}
 
 	void HandleKillScore(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -225,11 +255,19 @@ class DAFDeathmatch
 			m_Scoreboard.AddKill(killerIdentity, victimIdentity);
 			m_Scoreboard.AddTeamKill(killerTeam);
 			OnScoredPvpKill(victim, killer, weapon, headshot);
+			AwardSeasonPvpPoints(victimIdentity, killerIdentity, headshot);
 			return;
 		}
 
 		m_Scoreboard.AddKill(killerIdentity, victimIdentity);
 		OnScoredPvpKill(victim, killer, weapon, headshot);
+		AwardSeasonPvpPoints(victimIdentity, killerIdentity, headshot);
+	}
+
+	void AwardSeasonPvpPoints(PlayerIdentity victimIdentity, PlayerIdentity killerIdentity, bool headshot)
+	{
+		m_Season.AwardKill(killerIdentity, headshot, m_Settings);
+		m_Season.AwardAssists(victimIdentity, killerIdentity, m_Settings);
 	}
 
 	void OnScoredPvpKill(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -327,6 +365,9 @@ class DAFDeathmatch
 			break;
 		case COMMAND_SCORE:
 			SendScore(source);
+			break;
+		case COMMAND_RANK:
+			SendRank(source);
 			break;
 		case COMMAND_STATUS:
 			SendStatus(source);
@@ -431,6 +472,8 @@ class DAFDeathmatch
 			m_Settings.Load();
 			m_Arenas.Load();
 			m_Loadouts.Load();
+			m_DeathFlow.Configure(m_Settings.corpseCleanupSeconds, m_Settings.deathDropCleanupSeconds);
+			m_Warmup.RestartTick(this);
 			DAFDMConfigReport.PrintReport(m_Settings, m_Arenas, m_Loadouts, "reload");
 			ApplyWeaponFireModeSetting();
 			EvaluateWarmupState("reloadconfig");
@@ -454,6 +497,7 @@ class DAFDeathmatch
 		m_CommandRoutes.Set("players", COMMAND_PLAYERS);
 		m_CommandRoutes.Set("timeleft", COMMAND_TIMELEFT);
 		m_CommandRoutes.Set("score", COMMAND_SCORE);
+		m_CommandRoutes.Set("rank", COMMAND_RANK);
 		m_CommandRoutes.Set("status", COMMAND_STATUS);
 		m_CommandRoutes.Set("teams", COMMAND_TEAMS);
 		m_CommandRoutes.Set("inspect", COMMAND_INSPECT);
@@ -486,10 +530,21 @@ class DAFDeathmatch
 		{
 			string team = m_Teams.GetTeam(identity, m_CurrentGameMode);
 			DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D | Team: %3 %4", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), team, m_Scoreboard.GetTeamScore(team)));
+			SendRank(source);
 			return;
 		}
 
 		DAFDMChat.MessagePlayer(source, string.Format("Score: %1 K / %2 D", m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity)));
+		SendRank(source);
+	}
+
+	void SendRank(PlayerBase source)
+	{
+		if (!source || !source.GetIdentity())
+			return;
+
+		PlayerIdentity identity = source.GetIdentity();
+		DAFDMChat.MessagePlayer(source, string.Format("Season: %1 pts | Rank #%2 of %3", m_Season.GetPoints(identity), m_Season.GetRank(identity), m_Season.GetPlayerCount()));
 	}
 
 	void SendHelp(PlayerBase source)
@@ -497,12 +552,12 @@ class DAFDeathmatch
 		string leader = m_Settings.commandCharacter;
 		DAFDMChat.MessagePlayer(source, "Available commands:");
 		DAFDMChat.MessagePlayer(source, leader + "help, " + leader + "players, " + leader + "timeleft");
-		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "status, " + leader + "teams, " + leader + "inspect, " + leader + "autorespawn, " + leader + "respawn");
+		DAFDMChat.MessagePlayer(source, leader + "score, " + leader + "rank, " + leader + "status, " + leader + "teams, " + leader + "inspect, " + leader + "autorespawn, " + leader + "respawn");
 		DAFDMChat.MessagePlayer(source, leader + "endvote, " + leader + "arenavote <arena>, " + leader + "roundvote <type>, " + leader + "eventvote <type>, " + leader + "vote 1|2");
 		DAFDMChat.MessagePlayer(source, leader + "version, " + leader + "endround, " + leader + "forceround <type>");
 		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "forcetdm <type> [arena], " + leader + "spawnreport, " + leader + "reloadconfig (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "shuffleteams (admins)");
-		DAFDMChat.MessagePlayer(source, leader + "discordtest killfeed|events (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "discordtest killfeed|events|season (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "spawndummy, " + leader + "cleardummies, " + leader + "testdrop [weapon] [bonus] (admins)");
 	}
 
@@ -563,13 +618,14 @@ class DAFDeathmatch
 		endpoint.ToLower();
 		if (endpoint == "")
 		{
-			DAFDMChat.MessagePlayer(source, "Usage: @discordtest killfeed|events");
+			DAFDMChat.MessagePlayer(source, "Usage: @discordtest killfeed|events|season");
 			return;
 		}
 
 		bool killfeed = endpoint == "killfeed";
 		bool events = endpoint == "events";
-		if (!killfeed && !events)
+		bool season = endpoint == "season";
+		if (!killfeed && !events && !season)
 		{
 			DAFDMChat.MessagePlayer(source, "Unknown endpoint: " + args);
 			return;
@@ -578,8 +634,10 @@ class DAFDeathmatch
 		bool enabled;
 		if (killfeed)
 			enabled = m_Settings.enableDiscordKillfeed;
-		else
+		else if (events)
 			enabled = m_Settings.enableDiscordServerEvents;
+		else
+			enabled = m_Settings.enableDiscordSeasonSummary;
 		if (!enabled)
 		{
 			DAFDMChat.MessagePlayer(source, "Discord " + endpoint + " endpoint is disabled");
@@ -594,7 +652,7 @@ class DAFDeathmatch
 				return;
 			}
 		}
-		else
+		else if (events)
 		{
 			if (!m_Discord.WebhookReady(m_Settings.discordServerEventsWebhookUrl))
 			{
@@ -602,8 +660,16 @@ class DAFDeathmatch
 				return;
 			}
 		}
+		else
+		{
+			if (!m_Discord.WebhookReady(m_Settings.discordSeasonSummaryWebhookUrl))
+			{
+				DAFDMChat.MessagePlayer(source, "Discord season endpoint is enabled but the webhook URL is missing or invalid");
+				return;
+			}
+		}
 
-		m_Discord.TestEndpoint(m_Settings, killfeed);
+		m_Discord.TestEndpoint(m_Settings, endpoint);
 		DAFDMChat.MessagePlayer(source, "Discord " + endpoint + " test posted");
 	}
 
@@ -675,6 +741,7 @@ class DAFDeathmatch
 		}
 
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: round=%1 mode=%2 team=%3 arena=%4 pool=%5 loadout=%6 hands=%7", GetRoundDisplayName(), mode, team, arenaName, GetRoundLoadoutPool(), loadoutName, handsType));
+		DAFDMChat.MessagePlayer(source, string.Format("Inspect: seasonPoints=%1 seasonRank=%2 seasonPlayers=%3", m_Season.GetPoints(source.GetIdentity()), m_Season.GetRank(source.GetIdentity()), m_Season.GetPlayerCount()));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: dummies=%1 drops=%2 corpses=%3 dropTtl=%4s corpseTtl=%5s", GetActiveTestDummyCount(), m_DeathFlow.GetActiveDeathDropCount(), m_DeathFlow.GetPendingCorpseCleanupCount(), m_Settings.deathDropCleanupSeconds, m_Settings.corpseCleanupSeconds));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: spawnSafety=%1 minPlayer=%2m minEnemy=%3m view=%4m angle=%5deg", m_Settings.enableSpawnSafety, m_Settings.spawnSafetyMinPlayerDistance, m_Settings.spawnSafetyMinEnemyDistance, m_Settings.spawnSafetyEnemyViewDistance, m_Settings.spawnSafetyEnemyViewAngleDegrees));
 		DAFDMChat.MessagePlayer(source, string.Format("Inspect: warmup=%1 pending=%2 infected=%3 threshold=%4 delay=%5s", m_Warmup.IsActive(), m_Warmup.IsPending(), m_Warmup.GetActiveInfectedCount(), m_Settings.warmupPlayerThreshold, m_Settings.warmupActivateDelaySeconds));
@@ -694,6 +761,7 @@ class DAFDeathmatch
 
 	void StartArenaVote(PlayerBase source, string arenaName)
 	{
+		arenaName.TrimInPlace();
 		if (!m_Settings.enableArenaVote)
 		{
 			DAFDMChat.MessagePlayer(source, "Arena voting is disabled");
@@ -713,11 +781,18 @@ class DAFDeathmatch
 			return;
 		}
 
+		if (m_Arenas.IsExcluded(m_Settings, arena.GetName()))
+		{
+			DAFDMChat.MessagePlayer(source, "Arena is excluded from active rotation: " + arena.GetName());
+			return;
+		}
+
 		StartVote(source, "arena", arena.GetName(), "next arena: " + arena.GetName());
 	}
 
 	void StartRoundTypeVote(PlayerBase source, string roundTypeName)
 	{
+		roundTypeName.TrimInPlace();
 		if (!m_Settings.enableRoundTypeVote)
 		{
 			DAFDMChat.MessagePlayer(source, "Round-type voting is disabled");
@@ -813,6 +888,20 @@ class DAFDeathmatch
 		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.VoteTick, 1000, true);
 	}
 
+	void StartSeasonSummaryTick()
+	{
+		if (m_SeasonSummaryTickStarted)
+			return;
+
+		m_SeasonSummaryTickStarted = true;
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SeasonSummaryTick, 3600000, true);
+	}
+
+	void SeasonSummaryTick()
+	{
+		m_Season.MaybePostWeeklySummary(m_Settings, m_Discord);
+	}
+
 	void VoteTick()
 	{
 		if (!m_Settings.enableVoting)
@@ -906,6 +995,7 @@ class DAFDeathmatch
 
 	void ForceRound(PlayerBase source, string roundTypeName)
 	{
+		roundTypeName.TrimInPlace();
 		roundTypeName.ToLower();
 		DAFDMRoundTypeConfig roundType = GetRoundTypeByName(roundTypeName);
 		if (!roundType)
@@ -925,6 +1015,7 @@ class DAFDeathmatch
 
 	void ForceArena(PlayerBase source, string arenaName)
 	{
+		arenaName.TrimInPlace();
 		DAFDMArena arena = m_Arenas.GetByName(arenaName);
 		if (!arena)
 		{
@@ -956,6 +1047,7 @@ class DAFDeathmatch
 
 	void ForceNextWithMode(PlayerBase source, string args, string gameMode)
 	{
+		args.TrimInPlace();
 		int space = args.IndexOf(" ");
 		string roundTypeName = args;
 		string arenaName = "";
@@ -963,6 +1055,7 @@ class DAFDeathmatch
 		{
 			roundTypeName = args.Substring(0, space);
 			arenaName = args.Substring(space + 1, args.Length() - space - 1);
+			arenaName.TrimInPlace();
 		}
 
 		roundTypeName.ToLower();
@@ -1375,9 +1468,15 @@ class DAFDeathmatch
 
 	DAFDMRoundTypeConfig GetRoundTypeByName(string name)
 	{
+		name.ToLower();
 		foreach (DAFDMRoundTypeConfig roundType: m_Settings.roundTypes)
 		{
-			if (roundType && roundType.name == name)
+			if (!roundType)
+				continue;
+
+			string candidate = roundType.name;
+			candidate.ToLower();
+			if (candidate == name)
 				return roundType;
 		}
 
@@ -1549,7 +1648,7 @@ class DAFDeathmatch
 		if (!identity)
 			return;
 
-		DAFRPC.SendRoundStats(identity, m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity));
+		DAFRPC.SendRoundStats(identity, m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), m_Season.GetPoints(identity), m_Season.GetRank(identity));
 	}
 
 	string GetClientPlayerCountStatus()
