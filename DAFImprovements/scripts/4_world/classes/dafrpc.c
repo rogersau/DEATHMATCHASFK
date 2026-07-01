@@ -32,8 +32,7 @@ class DAFRPC
 	static const int RPC_ROUND_LABEL          = -74700010; // Param1<string>
 	static const int RPC_PLAYER_COUNT_STATUS  = -74700011; // Param2<int, string>
 	static const int RPC_ROUND_HUD_STATE      = -74700012; // Param5<int, string, int, string, bool>
-	static const int RPC_ROUND_STATS          = -74700013; // Param4<int, int, int, int>
-	static const int RPC_SEASON_POINTS_POPUP  = -74700014; // Param1<string>
+	static const int RPC_ROUND_STATS          = -74700013; // Param2<int, int>
 
 	// ---------------------------------------------------------------------------
 	// Server -> client send helpers. Only call these on the server.
@@ -68,26 +67,15 @@ class DAFRPC
 		}
 	}
 
-	/** Push a player's own round K/D stats to that player. Pass season values only when the caller owns them. */
-	static void SendRoundStats(PlayerIdentity identity, int kills, int deaths, int seasonPoints = -1, int seasonRank = -1)
+	/** Push a player's own round K/D stats to that player. */
+	static void SendRoundStats(PlayerIdentity identity, int kills, int deaths)
 	{
 		if (!identity)
 			return;
 
 		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
 		if (recipient)
-			recipient.RPCSingleParam(RPC_ROUND_STATS, new Param4<int, int, int, int>(kills, deaths, seasonPoints, seasonRank), true, identity);
-	}
-
-	/** Show a small client-side season points popup for the recipient only. */
-	static void SendSeasonPointsPopup(PlayerIdentity identity, string text)
-	{
-		if (!identity || text == "")
-			return;
-
-		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
-		if (recipient)
-			recipient.RPCSingleParam(RPC_SEASON_POINTS_POPUP, new Param1<string>(text), true, identity);
+			recipient.RPCSingleParam(RPC_ROUND_STATS, new Param2<int, int>(kills, deaths), true, identity);
 	}
 
 	/** Push zeroed round K/D stats to every connected player. */

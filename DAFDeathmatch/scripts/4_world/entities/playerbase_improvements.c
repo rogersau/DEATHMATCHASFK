@@ -573,6 +573,14 @@ modded class PlayerBase extends ManBase
 
 			DAFSeasonPointsPopup.Show(popupData.param1);
 		}
+		else if (rpc_type == DAFRPC.RPC_LEADERBOARD_SNAPSHOT)
+		{
+			Param1<TStringArray> leaderboardData;
+			if (!ctx.Read(leaderboardData))
+				return;
+
+			DAFDMLeaderboardCache.SetSnapshot(leaderboardData.param1);
+		}
 	}
 
 	static void DAF_ApplyPendingRoundHud()

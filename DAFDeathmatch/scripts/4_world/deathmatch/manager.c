@@ -126,6 +126,7 @@ class DAFDeathmatch
 		m_Teams.Reset();
 		m_Discord.ResetRoundStats();
 		DAFRPC.ResetRoundStatsHud();
+		BroadcastLeaderboard();
 		PrintFormat("DAFDeathmatch: %1 round started in arena %2", GetRoundDisplayName(), m_CurrentArena.GetName());
 
 		SpawnArenaWalls();
@@ -171,6 +172,7 @@ class DAFDeathmatch
 		{
 			m_Season.EnsurePlayer(player.GetIdentity());
 			SendClientStateTo(player.GetIdentity());
+			BroadcastLeaderboard();
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendClientStateTo, 1000, false, player.GetIdentity());
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendClientStateTo, 3000, false, player.GetIdentity());
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.SendClientStateTo, 6000, false, player.GetIdentity());
@@ -187,6 +189,7 @@ class DAFDeathmatch
 		m_Teams.Assign(identity, m_CurrentGameMode);
 		EvaluateWarmupState("player reset");
 		SendClientStateTo(identity);
+		BroadcastLeaderboard();
 	}
 
 	void OnPlayerKilled(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -204,6 +207,7 @@ class DAFDeathmatch
 		if (killer)
 			SendScoreHudTo(killer.GetIdentity());
 		BroadcastScoreHud();
+		BroadcastLeaderboard();
 
 		if (ShouldAutoRespawn(identity))
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.RespawnIdentity, m_Settings.respawnSeconds * 1000, false, identity, victim);
@@ -1693,6 +1697,7 @@ class DAFDeathmatch
 	{
 		EvaluateWarmupState("player disconnected");
 		BroadcastClientState();
+		BroadcastLeaderboard();
 	}
 
 	void BroadcastClientState()
@@ -1718,6 +1723,7 @@ class DAFDeathmatch
 
 		DAFRPC.SendRoundHudState(identity, roundSeconds, roundLabel, GetPlayerCount(), GetClientPlayerCountStatus(), IsManualRespawnAllowedForClients());
 		SendScoreHudTo(identity);
+		SendLeaderboardTo(identity);
 	}
 
 	void BroadcastScoreHud()
@@ -1737,6 +1743,55 @@ class DAFDeathmatch
 			return;
 
 		DAFRPC.SendRoundStats(identity, m_Scoreboard.GetKills(identity), m_Scoreboard.GetDeaths(identity), m_Season.GetPoints(identity), m_Season.GetRank(identity));
+	}
+
+	void BroadcastLeaderboard()
+	{
+		EnsureConnectedPlayersOnScoreboard();
+		DAFRPC.BroadcastLeaderboardSnapshot(GetConnectedLeaderboardSnapshot());
+	}
+
+	void SendLeaderboardTo(PlayerIdentity identity)
+	{
+		if (!identity)
+			return;
+
+		EnsureConnectedPlayersOnScoreboard();
+		DAFRPC.SendLeaderboardSnapshot(identity, GetConnectedLeaderboardSnapshot());
+	}
+
+	void EnsureConnectedPlayersOnScoreboard()
+	{
+		array<PlayerIdentity> identities = new array<PlayerIdentity>();
+		GetGame().GetPlayerIndentities(identities);
+
+		foreach (PlayerIdentity identity: identities)
+		{
+			if (identity)
+				m_Scoreboard.Ensure(identity);
+		}
+	}
+
+	array<ref DAFDMScore> GetConnectedLeaderboardSnapshot()
+	{
+		TStringArray connectedIds = new TStringArray();
+		array<PlayerIdentity> identities = new array<PlayerIdentity>();
+		GetGame().GetPlayerIndentities(identities);
+		foreach (PlayerIdentity identity: identities)
+		{
+			if (identity)
+				connectedIds.Insert(identity.GetId());
+		}
+
+		array<ref DAFDMScore> scores = new array<ref DAFDMScore>();
+		array<ref DAFDMScore> sorted = m_Scoreboard.GetSortedScoresSnapshot();
+		foreach (DAFDMScore score: sorted)
+		{
+			if (score && connectedIds.Find(score.id) >= 0)
+				scores.Insert(score);
+		}
+
+		return scores;
 	}
 
 	string GetClientPlayerCountStatus()

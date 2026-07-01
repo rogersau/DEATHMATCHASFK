@@ -46,8 +46,6 @@ modded class PlayerBase extends ManBase
 	private static string s_DAF_PendingPlayerCountStatus = "";
 	private static int s_DAF_PendingRoundKills = 0;
 	private static int s_DAF_PendingRoundDeaths = 0;
-	private static int s_DAF_PendingSeasonPoints = 0;
-	private static int s_DAF_PendingSeasonRank = 0;
 	private static bool s_DAFDM_ManualRespawnAllowed = false;
 	protected ref array<ref DAF_ItemDamageSnapshot> m_DAF_ItemDamageSnapshots;
 	private bool m_DAF_IsFallDeath;
@@ -507,13 +505,11 @@ modded class PlayerBase extends ManBase
 			if (s_KillFeed)
 			{
 				s_KillFeed.ClearItems();
-				s_KillFeed.SetRoundStats(0, 0, 0, 0);
+				s_KillFeed.SetRoundStats(0, 0);
 			}
 
 			s_DAF_PendingRoundKills = 0;
 			s_DAF_PendingRoundDeaths = 0;
-			s_DAF_PendingSeasonPoints = 0;
-			s_DAF_PendingSeasonRank = 0;
 		}
 		else if (rpc_type == DAFRPC.RPC_ROUND_TIME_SECONDS)
 		{
@@ -551,27 +547,15 @@ modded class PlayerBase extends ManBase
 		}
 		else if (rpc_type == DAFRPC.RPC_ROUND_STATS)
 		{
-			Param4<int, int, int, int> statsData;
+			Param2<int, int> statsData;
 			if (!ctx.Read(statsData))
 				return;
 
 			s_DAF_PendingRoundKills = statsData.param1;
 			s_DAF_PendingRoundDeaths = statsData.param2;
-			if (statsData.param3 >= 0)
-				s_DAF_PendingSeasonPoints = statsData.param3;
-			if (statsData.param4 >= 0)
-				s_DAF_PendingSeasonRank = statsData.param4;
 
 			if (s_KillFeed)
-				s_KillFeed.SetRoundStats(s_DAF_PendingRoundKills, s_DAF_PendingRoundDeaths, s_DAF_PendingSeasonPoints, s_DAF_PendingSeasonRank);
-		}
-		else if (rpc_type == DAFRPC.RPC_SEASON_POINTS_POPUP)
-		{
-			Param1<string> popupData;
-			if (!ctx.Read(popupData))
-				return;
-
-			DAFSeasonPointsPopup.Show(popupData.param1);
+				s_KillFeed.SetRoundStats(s_DAF_PendingRoundKills, s_DAF_PendingRoundDeaths);
 		}
 	}
 
@@ -586,7 +570,7 @@ modded class PlayerBase extends ManBase
 		if (s_DAF_PendingPlayerCount >= 0)
 			s_KillFeed.SetPlayerCountStatus(s_DAF_PendingPlayerCount, s_DAF_PendingPlayerCountStatus);
 
-		s_KillFeed.SetRoundStats(s_DAF_PendingRoundKills, s_DAF_PendingRoundDeaths, s_DAF_PendingSeasonPoints, s_DAF_PendingSeasonRank);
+		s_KillFeed.SetRoundStats(s_DAF_PendingRoundKills, s_DAF_PendingRoundDeaths);
 	}
 
 	bool DAFDM_IsManualRespawnAllowed()

@@ -33,6 +33,7 @@ class DAFRPC
 	static const int RPC_ROUND_HUD_STATE      = -74700012; // Param5<int, string, int, string, bool>
 	static const int RPC_ROUND_STATS          = -74700013; // Param4<int, int, int, int>
 	static const int RPC_SEASON_POINTS_POPUP  = -74700014; // Param1<string>
+	static const int RPC_LEADERBOARD_SNAPSHOT = -74700015; // Param1<TStringArray> triplets: name, kills, deaths
 
 	// ---------------------------------------------------------------------------
 	// Server -> client send helpers. Only call these on the server.
@@ -87,6 +88,51 @@ class DAFRPC
 		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
 		if (recipient)
 			recipient.RPCSingleParam(RPC_SEASON_POINTS_POPUP, new Param1<string>(text), true, identity);
+	}
+
+	/** Push the sorted round leaderboard to every connected player. */
+	static void BroadcastLeaderboardSnapshot(array<ref DAFDMScore> scores)
+	{
+		TStringArray data = BuildLeaderboardSnapshotData(scores);
+		array<Man> players = new array<Man>();
+		GetGame().GetWorld().GetPlayerList(players);
+
+		foreach (Man man: players)
+		{
+			PlayerBase recipient = PlayerBase.Cast(man);
+			if (recipient && recipient.GetIdentity())
+				recipient.RPCSingleParam(RPC_LEADERBOARD_SNAPSHOT, new Param1<TStringArray>(data), true, recipient.GetIdentity());
+		}
+	}
+
+	/** Push the sorted round leaderboard to a single reconnecting player. */
+	static void SendLeaderboardSnapshot(PlayerIdentity identity, array<ref DAFDMScore> scores)
+	{
+		if (!identity)
+			return;
+
+		PlayerBase recipient = PlayerBase.Cast(identity.GetPlayer());
+		if (recipient)
+			recipient.RPCSingleParam(RPC_LEADERBOARD_SNAPSHOT, new Param1<TStringArray>(BuildLeaderboardSnapshotData(scores)), true, identity);
+	}
+
+	private static TStringArray BuildLeaderboardSnapshotData(array<ref DAFDMScore> scores)
+	{
+		TStringArray data = new TStringArray();
+		if (!scores)
+			return data;
+
+		foreach (DAFDMScore score: scores)
+		{
+			if (!score)
+				continue;
+
+			data.Insert(score.name);
+			data.Insert(score.kills.ToString());
+			data.Insert(score.deaths.ToString());
+		}
+
+		return data;
 	}
 
 	/** Push zeroed round K/D stats to every connected player. */

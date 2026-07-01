@@ -1,0 +1,183 @@
+FrameWidgetClass DAFDMLeaderboardRoot {
+ ignorepointer 1
+ visible 1
+ position 54 96
+ size 520 470
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ priority 996
+ {
+  PanelWidgetClass Backdrop {
+   ignorepointer 1
+   color 0.0157 0.0157 0.0157 0.7200
+   position 0 0
+   size 520 470
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+  }
+  PanelWidgetClass Accent {
+   ignorepointer 1
+   color 0.9255 0.8235 0.3137 1
+   position 0 0
+   size 4 470
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+  }
+  TextWidgetClass Title {
+   ignorepointer 1
+   color 1 1 1 1
+   position 24 18
+   size 280 36
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "LEADERBOARD"
+   "exact text" 1
+   "exact text size" 28
+   "text halign" left
+   "text valign" center
+  }
+  TextWidgetClass RoundLabel {
+   ignorepointer 1
+   color 0.9255 0.8235 0.3137 1
+   position 304 20
+   size 190 30
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "ROUND K/D"
+   "exact text" 1
+   "exact text size" 18
+   "text halign" right
+   "text valign" center
+  }
+  PanelWidgetClass HeaderLine {
+   ignorepointer 1
+   color 1 1 1 0.1800
+   position 24 62
+   size 470 1
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+  }
+  TextWidgetClass RankHeader {
+   ignorepointer 1
+   color 0.75 0.75 0.75 1
+   position 24 76
+   size 48 24
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "#"
+   text_proportion 0.72
+   "text halign" left
+   "text valign" center
+  }
+  TextWidgetClass PlayerHeader {
+   ignorepointer 1
+   color 0.75 0.75 0.75 1
+   position 72 76
+   size 286 24
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "PLAYER"
+   text_proportion 0.72
+   "text halign" left
+   "text valign" center
+  }
+  TextWidgetClass KillsHeader {
+   ignorepointer 1
+   color 0.75 0.75 0.75 1
+   position 360 76
+   size 58 24
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "K"
+   text_proportion 0.72
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass DeathsHeader {
+   ignorepointer 1
+   color 0.75 0.75 0.75 1
+   position 426 76
+   size 58 24
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "D"
+   text_proportion 0.72
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass EmptyText {
+   ignorepointer 1
+   color 0.65 0.65 0.65 1
+   position 24 118
+   size 470 32
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   text "No kills recorded this round yet."
+   text_proportion 0.68
+   "text halign" left
+   "text valign" center
+  }
+  GridSpacerWidgetClass Rows {
+   ignorepointer 1
+   position 24 108
+   size 470 336
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   Padding 0
+   Margin 2
+   Columns 1
+   Rows 10
+   {
+    FrameWidgetClass Row0 {
+     ignorepointer 1
+     size 470 32
+     hexactsize 1
+     vexactsize 1
+     {
+      PanelWidgetClass Row0Bg { ignorepointer 1 color 1 1 1 0.0600 size 470 32 hexactsize 1 vexactsize 1 style Colorable }
+      TextWidgetClass Row0Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center }
+      TextWidgetClass Row0Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center }
+      TextWidgetClass Row0Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center }
+      TextWidgetClass Row0Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center }
+     }
+    }
+    FrameWidgetClass Row1 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row1Bg { ignorepointer 1 color 1 1 1 0.0250 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row1Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row1Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row1Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row1Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row2 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row2Bg { ignorepointer 1 color 1 1 1 0.0600 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row2Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row2Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row2Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row2Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row3 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row3Bg { ignorepointer 1 color 1 1 1 0.0250 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row3Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row3Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row3Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row3Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row4 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row4Bg { ignorepointer 1 color 1 1 1 0.0600 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row4Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row4Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row4Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row4Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row5 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row5Bg { ignorepointer 1 color 1 1 1 0.0250 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row5Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row5Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row5Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row5Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row6 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row6Bg { ignorepointer 1 color 1 1 1 0.0600 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row6Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row6Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row6Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row6Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row7 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row7Bg { ignorepointer 1 color 1 1 1 0.0250 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row7Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row7Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row7Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row7Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row8 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row8Bg { ignorepointer 1 color 1 1 1 0.0600 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row8Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row8Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row8Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row8Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+    FrameWidgetClass Row9 { ignorepointer 1 size 470 32 hexactsize 1 vexactsize 1 { PanelWidgetClass Row9Bg { ignorepointer 1 color 1 1 1 0.0250 size 470 32 hexactsize 1 vexactsize 1 style Colorable } TextWidgetClass Row9Rank { ignorepointer 1 color 0.9255 0.8235 0.3137 1 position 0 0 size 48 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row9Name { ignorepointer 1 color 1 1 1 1 position 48 0 size 286 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" left "text valign" center } TextWidgetClass Row9Kills { ignorepointer 1 color 1 1 1 1 position 336 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } TextWidgetClass Row9Deaths { ignorepointer 1 color 1 1 1 1 position 402 0 size 58 32 hexactpos 1 vexactpos 1 hexactsize 1 vexactsize 1 text "" text_proportion 0.72 "text halign" center "text valign" center } } }
+   }
+  }
+ }
+}

@@ -199,6 +199,46 @@ class DAFDMScoreboard
 		return snapshot;
 	}
 
+	array<ref DAFDMScore> GetSortedScoresSnapshot()
+	{
+		array<ref DAFDMScore> snapshot = GetScoresSnapshot();
+		for (int i = 0; i < snapshot.Count() - 1; i++)
+		{
+			int bestIndex = i;
+			for (int j = i + 1; j < snapshot.Count(); j++)
+			{
+				if (ShouldSortBefore(snapshot.Get(j), snapshot.Get(bestIndex)))
+					bestIndex = j;
+			}
+
+			if (bestIndex != i)
+			{
+				DAFDMScore current = snapshot.Get(i);
+				snapshot.Set(i, snapshot.Get(bestIndex));
+				snapshot.Set(bestIndex, current);
+			}
+		}
+
+		return snapshot;
+	}
+
+	bool ShouldSortBefore(DAFDMScore candidate, DAFDMScore current)
+	{
+		if (!candidate)
+			return false;
+
+		if (!current)
+			return true;
+
+		if (candidate.kills != current.kills)
+			return candidate.kills > current.kills;
+
+		if (candidate.deaths != current.deaths)
+			return candidate.deaths < current.deaths;
+
+		return false;
+	}
+
 	bool HasTeamScore(array<string> teamNames)
 	{
 		if (!teamNames)

@@ -6,15 +6,12 @@ class KillFeedWrapper
 	private TextWidget playerCount;
 	private TextWidget killsCount;
 	private TextWidget deathsCount;
-	private TextWidget seasonStats;
 	private TextWidget roundTimer;
 	private string roundLabel;
 	private int playerCountValue;
 	private string playerCountStatus;
 	private int killsValue;
 	private int deathsValue;
-	private int seasonPointsValue;
-	private int seasonRankValue;
 	private ref array<ref KillFeedItem> items;
 
 	void KillFeedWrapper()
@@ -28,7 +25,6 @@ class KillFeedWrapper
 			playerCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("PlayerCount"));
 			killsCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("KillsCount"));
 			deathsCount = TextWidget.Cast(playerCountRoot.FindAnyWidget("DeathsCount"));
-			seasonStats = TextWidget.Cast(playerCountRoot.FindAnyWidget("SeasonStats"));
 		}
 		else
 			Print("DAFImprovements: failed to create player count HUD widget");
@@ -44,10 +40,8 @@ class KillFeedWrapper
 		playerCountStatus = "";
 		killsValue = 0;
 		deathsValue = 0;
-		seasonPointsValue = 0;
-		seasonRankValue = 0;
 		SetRoundTimeRemaining(-1);
-		SetRoundStats(0, 0, 0, 0);
+		SetRoundStats(0, 0);
 	}
 
 	Widget GetRoot()
@@ -99,12 +93,10 @@ class KillFeedWrapper
 			playerCount.SetText(text);
 	}
 
-	void SetRoundStats(int kills, int deaths, int seasonPoints = 0, int seasonRank = 0)
+	void SetRoundStats(int kills, int deaths)
 	{
 		killsValue = kills;
 		deathsValue = deaths;
-		seasonPointsValue = seasonPoints;
-		seasonRankValue = seasonRank;
 		UpdateRoundStats();
 	}
 
@@ -115,15 +107,6 @@ class KillFeedWrapper
 
 		if (deathsCount)
 			deathsCount.SetText(deathsValue.ToString());
-
-		if (seasonStats)
-		{
-			string rankText = "-";
-			if (seasonRankValue > 0)
-				rankText = "#" + seasonRankValue.ToString();
-
-			seasonStats.SetText("Season: " + seasonPointsValue.ToString() + " pts | " + rankText);
-		}
 	}
 
 	void SetRoundTimeRemaining(int seconds)
