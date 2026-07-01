@@ -105,7 +105,7 @@ WrapSpacerWidgetClass MurderInfoWrap {
      hexactsize 1
      vexactsize 1
      fixaspect fixwidth
-     image0 "DAFImprovements/assets/icons/headshot.paa"
+     image0 "DAFDeathmatch/assets/icons/headshot.paa"
      mode blend
      "src alpha" 1
      stretch 1

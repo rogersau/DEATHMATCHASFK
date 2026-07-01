@@ -23,7 +23,6 @@ Local debug/admin test commands are enabled by default by both start scripts. Us
 The launcher prepares:
 
 - local Namalsk workshop junctions
-- `@DAFImprovements`
 - `@DAFDeathmatch`
 - clean standalone `deathmatch.namalsk/init.c`
 - converted `DAFDeathmatch` profile config

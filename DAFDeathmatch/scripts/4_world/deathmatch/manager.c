@@ -266,8 +266,39 @@ class DAFDeathmatch
 
 	void AwardSeasonPvpPoints(PlayerIdentity victimIdentity, PlayerIdentity killerIdentity, bool headshot)
 	{
-		m_Season.AwardKill(killerIdentity, headshot, m_Settings);
-		m_Season.AwardAssists(victimIdentity, killerIdentity, m_Settings);
+		int killPoints = m_Season.AwardKill(killerIdentity, headshot, m_Settings);
+		if (killPoints > 0)
+			SendSeasonPointsPopup(killerIdentity, BuildKillPointsPopup(killPoints, headshot));
+
+		TStringArray unconIds = new TStringArray();
+		m_Season.AwardUncons(victimIdentity, killerIdentity, m_Settings, unconIds);
+		SendUnconPointsPopups(unconIds);
+	}
+
+	string BuildKillPointsPopup(int points, bool headshot)
+	{
+		return string.Format("+%1", points);
+	}
+
+	void SendUnconPointsPopups(TStringArray unconIds)
+	{
+		if (!unconIds || m_Settings.seasonAssistPoints <= 0)
+			return;
+
+		foreach (string unconId: unconIds)
+		{
+			PlayerIdentity identity = FindIdentityById(unconId);
+			if (identity)
+				SendSeasonPointsPopup(identity, string.Format("+%1", m_Settings.seasonAssistPoints));
+		}
+	}
+
+	void SendSeasonPointsPopup(PlayerIdentity identity, string text)
+	{
+		if (!identity || text == "")
+			return;
+
+		DAFRPC.SendSeasonPointsPopup(identity, text);
 	}
 
 	void OnScoredPvpKill(PlayerBase victim, PlayerBase killer, EntityAI weapon, bool headshot)
@@ -1150,6 +1181,22 @@ class DAFDeathmatch
 		array<PlayerIdentity> identities = new array<PlayerIdentity>();
 		GetGame().GetPlayerIndentities(identities);
 		return identities.Count();
+	}
+
+	PlayerIdentity FindIdentityById(string playerId)
+	{
+		if (playerId == "")
+			return null;
+
+		array<PlayerIdentity> identities = new array<PlayerIdentity>();
+		GetGame().GetPlayerIndentities(identities);
+		foreach (PlayerIdentity identity: identities)
+		{
+			if (identity && identity.GetId() == playerId)
+				return identity;
+		}
+
+		return null;
 	}
 
 	void RespawnAllPlayers()

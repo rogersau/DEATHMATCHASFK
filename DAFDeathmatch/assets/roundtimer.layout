@@ -1,0 +1,46 @@
+FrameWidgetClass RoundTimerRoot {
+ position 0 32
+ size 280 44
+ halign center_ref
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ {
+  GridSpacerWidgetClass Background {
+   ignorepointer 1
+   visible 1
+   clipchildren 0
+   color 0.0784 0.0784 0.0784 0.5000
+   position 0 3
+   size 280 38
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+   Padding 0
+   Margin 0
+   Columns 1
+   Rows 1
+   {
+    TextWidgetClass RoundTimer {
+     ignorepointer 1
+     color 1 1 1 0.9
+     size 280 38
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     "exact text" 0
+     text ""
+     text_proportion 0.72
+     "size to text h" 0
+     "size to text v" 0
+     "text halign" center
+     "text valign" center
+    }
+   }
+  }
+ }
+}

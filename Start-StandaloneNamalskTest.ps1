@@ -127,11 +127,9 @@ foreach ($Entry in $WorkshopMods.GetEnumerator()) {
 }
 
 if ($Repack) {
-    Repack-Addon "DAFImprovements"
     Repack-Addon "DAFDeathmatch"
 }
 
-Copy-Addon "DAFImprovements"
 Copy-Addon "DAFDeathmatch"
 
 if (-not (Test-Path -LiteralPath $ServerMission)) {
@@ -155,7 +153,6 @@ Set-LocalDebugCommands (Join-Path $Profile "DAFDeathmatch\settings.json")
 $ModList = @(
     Join-Path $ServerTest "@NamalskIsland"
     Join-Path $ServerTest "@NamalskSurvival"
-    Join-Path $ServerTest "@DAFImprovements"
     Join-Path $ServerTest "@DAFDeathmatch"
 ) -join ";"
 

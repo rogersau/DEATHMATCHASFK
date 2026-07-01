@@ -151,7 +151,6 @@ Assert-Path $BattleEyePath "Local BattlEye path"
 $modList = @(
 	Join-Path $ServerTest "@NamalskIsland"
 	Join-Path $ServerTest "@NamalskSurvival"
-	Join-Path $ServerTest "@DAFImprovements"
 	Join-Path $ServerTest "@DAFDeathmatch"
 ) -join ";"
 

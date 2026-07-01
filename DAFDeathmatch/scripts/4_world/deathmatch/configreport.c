@@ -10,7 +10,7 @@ class DAFDMConfigReport
 		PrintFormat("DAFDeathmatch: config report (%1): roundTypes=%2 weights=%3 arenas=%4 enabledArenas=%5 excludedArenas=%6 loadoutPools=%7 warnings=%8", source, CountRoundTypes(settings), BuildRoundWeightSummary(settings), CountArenas(arenas), CountEnabledArenas(settings, arenas), CountExcludedArenas(settings), CountLoadoutPools(loadouts), warningCount);
 		PrintFormat("DAFDeathmatch: config flags (%1): autoRespawn=%2 playerRespawnCommand=%3 adminTestCommands=%4 spawnSafety=%5 tdmOutfitEnforcement=%6 lowPopWarmup=%7 forcePreferredFireMode=%8 unconsciousness=%9 weaponJamDisabled=1", source, settings.autoRespawn, settings.enablePlayerRespawnCommand, settings.enableAdminTestCommands, settings.enableSpawnSafety, settings.enforceTDMTeamOutfits, settings.enableLowPopWarmup, settings.forcePreferredWeaponFireMode, settings.enableUnconsciousness);
 		PrintFormat("DAFDeathmatch: discord flags (%1): killfeed=%2 url=%3 serverEvents=%4 url=%5 season=%6 url=%7 serverName=%8 suppressEmbeds=%9", source, settings.enableDiscordKillfeed, FormatDiscordUrlState(settings.enableDiscordKillfeed, settings.discordKillfeedWebhookUrl), settings.enableDiscordServerEvents, FormatDiscordUrlState(settings.enableDiscordServerEvents, settings.discordServerEventsWebhookUrl), settings.enableDiscordSeasonSummary, FormatDiscordUrlState(settings.enableDiscordSeasonSummary, settings.discordSeasonSummaryWebhookUrl), settings.discordServerName, settings.discordSuppressEmbeds);
-		PrintFormat("DAFDeathmatch: season flags (%1): enabled=%2 kill=%3 headshotBonus=%4 assist=%5 assistWindowSeconds=%6 summaryDays=%7 summaryTop=%8", source, settings.enableSeasonScoring, settings.seasonKillPoints, settings.seasonHeadshotBonusPoints, settings.seasonAssistPoints, settings.seasonAssistWindowSeconds, settings.seasonSummaryIntervalDays, settings.seasonSummaryTopPlayers);
+		PrintFormat("DAFDeathmatch: season flags (%1): enabled=%2 kill=%3 headshotBonus=%4 uncon=%5 unconWindowSeconds=%6 summaryDays=%7 summaryTop=%8", source, settings.enableSeasonScoring, settings.seasonKillPoints, settings.seasonHeadshotBonusPoints, settings.seasonAssistPoints, settings.seasonAssistWindowSeconds, settings.seasonSummaryIntervalDays, settings.seasonSummaryTopPlayers);
 		PrintFormat("DAFDeathmatch: voting flags (%1): enabled=%2 endRound=%3 arena=%4 roundType=%5 minPlayers=%6 durationSeconds=%7", source, settings.enableVoting, settings.enableEndRoundVote, settings.enableArenaVote, settings.enableRoundTypeVote, settings.voteMinimumPlayers, settings.voteDurationSeconds);
 	}
 
@@ -147,10 +147,10 @@ class DAFDMConfigReport
 			warnings += Warn("season headshot bonus points are negative");
 
 		if (settings.seasonAssistPoints < 0)
-			warnings += Warn("season assist points are negative");
+			warnings += Warn("season uncon points are negative");
 
 		if (settings.seasonAssistWindowSeconds < 1)
-			warnings += Warn("season assist window is below one second");
+			warnings += Warn("season uncon window is below one second");
 
 		if (settings.seasonSummaryIntervalDays < 1)
 			warnings += Warn("season summary interval is below one day");

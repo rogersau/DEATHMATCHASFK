@@ -1,0 +1,11 @@
+enum DeathType
+{
+	UNKNOWN = 0,
+	PVP,
+	SUICIDE,
+	BLEEDING,
+	STARVING,
+	ZOMBIE,
+	ANIMAL,
+	FALL
+}

@@ -5,6 +5,7 @@ class DAFDMSeasonPlayer
 	int points;
 	int kills;
 	int headshots;
+	int uncons;
 	int assists;
 
 	void DAFDMSeasonPlayer(string playerId = "", string playerName = "")
@@ -52,6 +53,7 @@ class DAFDMSeason
 			JsonFileLoader<ref DAFDMSeasonStore>.JsonLoadFile(DAFDMFilenames.SEASON_JSON, m_Store);
 			if (!m_Store.players)
 				m_Store.players = new array<ref DAFDMSeasonPlayer>();
+			MigrateAssistCounts();
 		}
 		else
 		{
@@ -85,27 +87,30 @@ class DAFDMSeason
 		RegisterDamageById(victim.GetIdentity().GetId(), attacker.GetIdentity().GetId(), attacker.GetIdentity().GetName(), assistWindowSeconds);
 	}
 
-	void AwardKill(PlayerIdentity killer, bool headshot, DAFDMSettings settings)
+	int AwardKill(PlayerIdentity killer, bool headshot, DAFDMSettings settings)
 	{
 		if (!settings || !settings.enableSeasonScoring || !killer)
-			return;
+			return 0;
 
 		DAFDMSeasonPlayer player = Ensure(killer.GetId(), killer.GetName());
-		player.points += settings.seasonKillPoints;
+		int awarded = settings.seasonKillPoints;
+		player.points += awarded;
 		player.kills++;
 		if (headshot)
 		{
+			awarded += settings.seasonHeadshotBonusPoints;
 			player.points += settings.seasonHeadshotBonusPoints;
 			player.headshots++;
 		}
 
 		Save();
 		PrintFormat("DAFDeathmatch: season kill points player=%1 points=%2 rank=%3 headshot=%4", player.id, player.points, GetRankById(player.id), headshot);
+		return awarded;
 	}
 
-	void AwardAssists(PlayerIdentity victim, PlayerIdentity killer, DAFDMSettings settings)
+	void AwardUncons(PlayerIdentity victim, PlayerIdentity killer, DAFDMSettings settings, TStringArray unconIds)
 	{
-		if (!settings || !settings.enableSeasonScoring || !victim)
+		if (!settings || !settings.enableSeasonScoring || !victim || !unconIds)
 			return;
 
 		string victimId = victim.GetId();
@@ -128,11 +133,12 @@ class DAFDMSeason
 			if ((now - entry.lastDamageAt) > settings.seasonAssistWindowSeconds * 1000)
 				continue;
 
-			DAFDMSeasonPlayer assistPlayer = Ensure(entry.attackerId, entry.attackerName);
-			assistPlayer.points += settings.seasonAssistPoints;
-			assistPlayer.assists++;
+			DAFDMSeasonPlayer unconPlayer = Ensure(entry.attackerId, entry.attackerName);
+			unconPlayer.points += settings.seasonAssistPoints;
+			unconPlayer.uncons++;
+			unconIds.Insert(unconPlayer.id);
 			changed = true;
-			PrintFormat("DAFDeathmatch: season assist points player=%1 points=%2 rank=%3", assistPlayer.id, assistPlayer.points, GetRankById(assistPlayer.id));
+			PrintFormat("DAFDeathmatch: season uncon points player=%1 points=%2 rank=%3", unconPlayer.id, unconPlayer.points, GetRankById(unconPlayer.id));
 		}
 
 		if (changed)
@@ -222,7 +228,7 @@ class DAFDMSeason
 				break;
 
 			used.Insert(next.id);
-			summary += string.Format("%1. **%2** - **%3** pts (%4 K / %5 HS / %6 A)\\n", rank, next.name, next.points, next.kills, next.headshots, next.assists);
+			summary += string.Format("%1. **%2** - **%3** pts (%4 K / %5 HS / %6 U)\\n", rank, next.name, next.points, next.kills, next.headshots, next.uncons);
 		}
 
 		if (summary == "")
@@ -325,6 +331,22 @@ class DAFDMSeason
 		}
 
 		return false;
+	}
+
+	private void MigrateAssistCounts()
+	{
+		bool changed = false;
+		foreach (DAFDMSeasonPlayer player: m_Store.players)
+		{
+			if (player && player.uncons <= 0 && player.assists > 0)
+			{
+				player.uncons = player.assists;
+				changed = true;
+			}
+		}
+
+		if (changed)
+			Save();
 	}
 
 	private int GetTotalPoints()

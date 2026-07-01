@@ -1,9 +1,8 @@
 /**
  * DAFRPC owns the server-to-client RPC seam shared across the DAF addons.
  *
- * Three addons need to send and receive the same signals: DAFImprovements
- * (the only addon clients load), DAFDeathmatch, and DAFServerImprovements.
- * Before this module, the RPC ids were hand-coordinated magic numbers (-74700005
+ * The standalone deathmatch client and server both need to send and receive
+ * the same signals. Before this module, the RPC ids were hand-coordinated magic numbers (-74700005
  * through -74700012) scattered as raw literals across five files. ADR-0001
  * mandated a local wrapper to pay that down; this is it.
  *

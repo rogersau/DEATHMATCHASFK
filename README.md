@@ -53,14 +53,14 @@ Load this after the reference deathmatch mod as a server mod:
 
 ### DAFDeathmatch
 
-Standalone replacement Deathmatch server addon under active development.
+Standalone replacement Deathmatch client/server addon under active development.
 
 Current first slice:
 
 - Own settings file at `$profile:DAFDeathmatch/settings.json`
 - Own arena file at `$profile:DAFDeathmatch/arenas.json`
 - Basic round start/end lifecycle
-- Top-center round timer broadcast to `DAFImprovements`
+- Absorbed HUD/RPC client layer from `DAFImprovements`
 - Basic player spawning into the selected arena
 - Basic weapon/survival item loadout with quickbar slots
 - Basic internal scoreboard shell, with shared HUD K:D reset at round start
@@ -69,6 +69,5 @@ Current first slice:
 Test this separately from Crimson Zamboni. Do not load both round managers together:
 
 ```text
--mod=@DAFImprovements
--serverMod=@DAFDeathmatch
+-mod=@DAFDeathmatch
 ```

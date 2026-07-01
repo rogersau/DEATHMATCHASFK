@@ -17,7 +17,6 @@ $ServerTest = Join-Path $Repo "build\server-test"
 $Mods = @(
     Join-Path $ServerTest "@NamalskIsland"
     Join-Path $ServerTest "@NamalskSurvival"
-    Join-Path $ServerTest "@DAFImprovements"
     Join-Path $ServerTest "@DAFDeathmatch"
 )
 

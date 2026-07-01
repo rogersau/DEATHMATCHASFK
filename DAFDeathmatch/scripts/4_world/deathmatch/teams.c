@@ -6,7 +6,7 @@
  * spawn safety, loadouts, and arena walls. This module concentrates the
  * assignment logic behind one interface keyed on the active game mode.
  *
- * The active mode (ffa/tdm) is NOT owned here — it is round state and stays
+ * The active mode (ffa/tdm) is NOT owned here ? it is round state and stays
  * in the manager. Every call takes the mode as a parameter, so this module
  * has no knowledge of rounds, arenas, or the round lifecycle. That keeps the
  * seam clean: the manager (round owner) passes the mode; teams module decides

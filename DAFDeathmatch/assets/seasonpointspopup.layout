@@ -1,0 +1,108 @@
+FrameWidgetClass SeasonPointsPopupRoot {
+ ignorepointer 1
+ position 0 -132
+ size 364 46
+ halign center_ref
+ valign center_ref
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+ {
+  TextWidgetClass SeasonPointsShadowLeft {
+   ignorepointer 1
+   color 0 0 0 1
+   position 0 2
+   size 360 42
+   halign left_ref
+   valign top_ref
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "+5"
+   text_proportion 0.96
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass SeasonPointsShadowRight {
+   ignorepointer 1
+   color 0 0 0 1
+   position 4 2
+   size 360 42
+   halign left_ref
+   valign top_ref
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "+5"
+   text_proportion 0.96
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass SeasonPointsShadowTop {
+   ignorepointer 1
+   color 0 0 0 1
+   position 2 0
+   size 360 42
+   halign left_ref
+   valign top_ref
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "+5"
+   text_proportion 0.96
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass SeasonPointsShadowBottom {
+   ignorepointer 1
+   color 0 0 0 1
+   position 2 4
+   size 360 42
+   halign left_ref
+   valign top_ref
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "+5"
+   text_proportion 0.96
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" center
+   "text valign" center
+  }
+  TextWidgetClass SeasonPointsText {
+   ignorepointer 1
+   color 0.9255 0.8235 0.3137 1
+   position 2 2
+   size 360 42
+   halign left_ref
+   valign top_ref
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   "exact text" 0
+   text "+5"
+   text_proportion 0.96
+   "size to text h" 0
+   "size to text v" 0
+   "text halign" center
+   "text valign" center
+  }
+ }
+}
