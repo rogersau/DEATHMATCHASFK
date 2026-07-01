@@ -62,7 +62,7 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 @eventvote juiced
 @vote 1
 @vote 2
-@spawndummy
+@spawndummy 9
 @cleardummies
 @testdrop
 @testdrop M4A1 Mag_STANAG_30Rnd
@@ -79,7 +79,7 @@ The client launches with local mod folders and connects to `127.0.0.1:2543`.
 
 Voting is enabled by default and follows the Zamboni-style command shape: one active vote at a time, `@vote 1` for yes, and `@vote 2` for no. `@endvote` ends the current round if it passes. `@arenavote <arena>` and `@roundvote <type>` set the next arena or round type if they pass; `@eventvote <type>` is a familiar alias for round-type voting. Voting does not expose TDM directly; players can only vote for configured round types.
 
-`@spawndummy`, `@cleardummies`, and `@testdrop` require admin access and `enableAdminTestCommands = true` in `settings.json`. `@respawn` is admin-only unless `enablePlayerRespawnCommand = true`.
+`@spawndummy [1-9]`, `@cleardummies`, and `@testdrop` require admin access and `enableAdminTestCommands = true` in `settings.json`. `@respawn` is admin-only unless `enablePlayerRespawnCommand = true`.
 
 ## Discord
 
@@ -136,7 +136,7 @@ Low-pop warmup is enabled by default. With one real player connected, warmup act
 - `@inspect` shows the server's current round, mode, team, arena, loadout pool, last rolled loadout, and item in hands.
 - `@inspect` also shows whether warmup is active or pending and how many warmup infected are currently tracked.
 - `@spawnreport` shows why the current arena's spawn-safety logic picked a spawn.
-- `@spawndummy` creates a survivor-looking test target near you for solo shooting/death-drop checks.
+- `@spawndummy [1-9]` creates survivor-looking test targets near you for solo shooting/death-drop checks.
 - `@cleardummies` removes tracked test targets without ending the round.
 - `@testdrop [weapon] [bonus]` creates a tracked death-drop weapon near you without requiring a kill.
 - Picking up a tracked test/death drop unregisters it and grants the configured bonus only when the picker is not the original owner.

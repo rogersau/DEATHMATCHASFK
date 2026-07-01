@@ -1,18 +1,18 @@
 FrameWidgetClass PlayerCountRoot {
- position 20 98
- size 300 112
+ position 24 96
+ size 292 112
  hexactpos 1
  vexactpos 1
  hexactsize 1
  vexactsize 1
  {
-  GridSpacerWidgetClass Background {
+  GridSpacerWidgetClass PlayerPlate {
    ignorepointer 1
    visible 1
    clipchildren 0
-   color 0.0784 0.0784 0.0784 0.5200
+   color 0.0157 0.0157 0.0157 0.5400
    position 0 0
-   size 276 112
+   size 212 32
    hexactpos 1
    vexactpos 1
    hexactsize 1
@@ -23,124 +23,152 @@ FrameWidgetClass PlayerCountRoot {
    Columns 1
    Rows 1
    {
-    FrameWidgetClass Content {
+    TextWidgetClass PlayerCount {
      ignorepointer 1
-     position 10 2
-     size 300 104
+     color 1 1 1 1
+     position 10 0
+     size 196 32
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     "exact text" 0
+     text "Players: 0"
+     text_proportion 0.72
+     "size to text h" 0
+     "size to text v" 0
+     "text halign" left
+     "text valign" center
+    }
+   }
+  }
+  GridSpacerWidgetClass StatsPlate {
+   ignorepointer 1
+   visible 1
+   clipchildren 0
+   color 0.0157 0.0157 0.0157 0.5000
+   position 0 38
+   size 176 36
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+   Padding 0
+   Margin 0
+   Columns 1
+   Rows 1
+   {
+    FrameWidgetClass RoundStatsRoot {
+     ignorepointer 1
+     position 10 0
+     size 164 36
      hexactpos 1
      vexactpos 1
      hexactsize 1
      vexactsize 1
      {
-      TextWidgetClass PlayerCount {
+      ImageWidgetClass KillsIcon {
        ignorepointer 1
-       color 1 1 1 0.85
-       size 300 34
+       color 1 1 1 1
+       position 0 2
+       size 32 32
        hexactpos 1
        vexactpos 1
        hexactsize 1
        vexactsize 1
-       "exact text" 0
-       text "Players: 0"
-       text_proportion 0.75
-       "size to text h" 0
-       "size to text v" 0
+       fixaspect fixwidth
+       image0 "DAFDeathmatch/assets/icons/kills.paa"
+       mode blend
+       "src alpha" 1
+       stretch 1
+       "clamp mode" clamp
+       filter 1
+       nocache 0
+      }
+      TextWidgetClass KillsCount {
+       ignorepointer 1
+       color 1 1 1 1
+       position 36 2
+       size 42 32
+       hexactpos 1
+       vexactpos 1
+       hexactsize 1
+       vexactsize 1
+       text "0"
+       text_proportion 0.72
        "text halign" left
        "text valign" center
       }
-      FrameWidgetClass RoundStatsRoot {
+      ImageWidgetClass DeathsIcon {
        ignorepointer 1
-       position 0 34
-       size 300 36
+       color 1 1 1 1
+       position 86 2
+       size 32 32
        hexactpos 1
        vexactpos 1
        hexactsize 1
        vexactsize 1
-       {
-        ImageWidgetClass KillsIcon {
-         ignorepointer 1
-         color 1 1 1 0.85
-         position 0 2
-         size 32 32
-         hexactpos 1
-         vexactpos 1
-         hexactsize 1
-         vexactsize 1
-         fixaspect fixwidth
-         image0 "DAFDeathmatch/assets/icons/kills.paa"
-         mode blend
-         "src alpha" 1
-         stretch 1
-         "clamp mode" clamp
-         filter 1
-         nocache 0
-        }
-        TextWidgetClass KillsCount {
-         ignorepointer 1
-         color 1 1 1 0.85
-         position 36 2
-         size 42 32
-         hexactpos 1
-         vexactpos 1
-         hexactsize 1
-         vexactsize 1
-         text "0"
-         text_proportion 0.72
-         "text halign" left
-         "text valign" center
-        }
-        ImageWidgetClass DeathsIcon {
-         ignorepointer 1
-         color 1 1 1 0.85
-         position 90 2
-         size 32 32
-         hexactpos 1
-         vexactpos 1
-         hexactsize 1
-         vexactsize 1
-         fixaspect fixwidth
-         image0 "DAFDeathmatch/assets/icons/deaths.paa"
-         mode blend
-         "src alpha" 1
-         stretch 1
-         "clamp mode" clamp
-         filter 1
-         nocache 0
-        }
-        TextWidgetClass DeathsCount {
-         ignorepointer 1
-         color 1 1 1 0.85
-         position 126 2
-         size 42 32
-         hexactpos 1
-         vexactpos 1
-         hexactsize 1
-         vexactsize 1
-         text "0"
-         text_proportion 0.72
-         "text halign" left
-         "text valign" center
-        }
-       }
+       fixaspect fixwidth
+       image0 "DAFDeathmatch/assets/icons/deaths.paa"
+       mode blend
+       "src alpha" 1
+       stretch 1
+       "clamp mode" clamp
+       filter 1
+       nocache 0
       }
-      TextWidgetClass SeasonStats {
+      TextWidgetClass DeathsCount {
        ignorepointer 1
-       color 1 1 1 0.85
-       position 0 72
-       size 260 28
+       color 1 1 1 1
+       position 122 2
+       size 42 32
        hexactpos 1
        vexactpos 1
        hexactsize 1
        vexactsize 1
-       "exact text" 0
-       text "Season: 0 pts | -"
-       text_proportion 0.62
-       "size to text h" 0
-       "size to text v" 0
+       text "0"
+       text_proportion 0.72
        "text halign" left
        "text valign" center
       }
      }
+    }
+   }
+  }
+  GridSpacerWidgetClass SeasonPlate {
+   ignorepointer 1
+   visible 1
+   clipchildren 0
+   color 0.0157 0.0157 0.0157 0.5000
+   position 0 80
+   size 248 32
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   style Colorable
+   Padding 0
+   Margin 0
+   Columns 1
+   Rows 1
+   {
+    TextWidgetClass SeasonStats {
+     ignorepointer 1
+     color 1 1 1 1
+     position 10 1
+     size 232 30
+     hexactpos 1
+     vexactpos 1
+     hexactsize 1
+     vexactsize 1
+     "exact text" 0
+     text "Season: 0 pts | -"
+     text_proportion 0.62
+     "size to text h" 0
+     "size to text v" 0
+     "text halign" left
+     "text valign" center
     }
    }
   }

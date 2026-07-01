@@ -1,6 +1,6 @@
 FrameWidgetClass DAFVoiceSpeakersRoot {
- position 22 138
- size 276 138
+ position 24 140
+ size 244 128
  hexactpos 1
  vexactpos 1
  hexactsize 1
@@ -11,23 +11,24 @@ FrameWidgetClass DAFVoiceSpeakersRoot {
    ignorepointer 1
    visible 1
    clipchildren 0
-   color 0.0784 0.0784 0.0784 0.4800
+   color 0.0157 0.0157 0.0157 0.5000
    position 0 0
-   size 276 138
+   size 244 128
    hexactpos 1
    vexactpos 1
    hexactsize 1
    vexactsize 1
    style Colorable
-   Padding 8
+   Padding 0
    Margin 0
    Columns 1
    Rows 1
    {
     TextWidgetClass VoiceSpeakersText {
      ignorepointer 1
-     color 1 1 1 0.9
-     size 260 130
+     color 1 1 1 1
+     position 10 8
+     size 224 112
      hexactpos 1
      vexactpos 1
      hexactsize 1

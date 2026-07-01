@@ -481,7 +481,7 @@ class DAFDeathmatch
 			if (!RequireAdminTestCommand(source))
 				return;
 
-			SpawnTestDummy(source);
+			SpawnTestDummies(source, args);
 			break;
 		case COMMAND_CLEARDUMMIES:
 			if (!RequireAdminTestCommand(source))
@@ -589,7 +589,7 @@ class DAFDeathmatch
 		DAFDMChat.MessagePlayer(source, leader + "forcearena <arena>, " + leader + "forcenext <type> [arena], " + leader + "forcetdm <type> [arena], " + leader + "spawnreport, " + leader + "reloadconfig (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "shuffleteams (admins)");
 		DAFDMChat.MessagePlayer(source, leader + "discordtest killfeed|events|season (admins)");
-		DAFDMChat.MessagePlayer(source, leader + "spawndummy, " + leader + "cleardummies, " + leader + "testdrop [weapon] [bonus] (admins)");
+		DAFDMChat.MessagePlayer(source, leader + "spawndummy [1-9], " + leader + "cleardummies, " + leader + "testdrop [weapon] [bonus] (admins)");
 	}
 
 	bool RequireAdmin(PlayerBase source)
@@ -1317,7 +1317,7 @@ class DAFDeathmatch
 		return DAFDMTeams.IsTeamMode(m_CurrentGameMode);
 	}
 
-	void SpawnTestDummy(PlayerBase source)
+	void SpawnTestDummies(PlayerBase source, string args)
 	{
 		if (!m_CurrentArena)
 		{
@@ -1325,13 +1325,45 @@ class DAFDeathmatch
 			return;
 		}
 
-		vector position = GetTestDummyPosition(source);
+		int count = ParseTestDummyCount(args);
+		int spawned = 0;
+		for (int i = 0; i < count; i++)
+		{
+			if (SpawnTestDummy(source, i))
+				spawned++;
+		}
+
+		if (spawned == 1)
+			DAFDMChat.MessagePlayer(source, "Spawned test dummy");
+		else
+			DAFDMChat.MessagePlayer(source, string.Format("Spawned %1 test dummies", spawned));
+	}
+
+	int ParseTestDummyCount(string args)
+	{
+		args.TrimInPlace();
+		if (args == "")
+			return 1;
+
+		int count = args.ToInt();
+		if (count < 1)
+			return 1;
+
+		if (count > 9)
+			return 9;
+
+		return count;
+	}
+
+	bool SpawnTestDummy(PlayerBase source, int index)
+	{
+		vector position = GetTestDummyPosition(source, index);
 		PlayerBase dummy = PlayerBase.Cast(GetGame().CreateObject("SurvivorM_Mirek", position, false, true));
 		if (!dummy)
 		{
 			DAFDMChat.MessagePlayer(source, "Failed to spawn test dummy");
 			Print("DAFDeathmatch: failed to spawn test dummy");
-			return;
+			return false;
 		}
 
 		m_TestDummies.Insert(dummy);
@@ -1341,7 +1373,7 @@ class DAFDeathmatch
 			m_CurrentArena.FaceCenter(dummy);
 
 		EquipPlayer(dummy);
-		DAFDMChat.MessagePlayer(source, "Spawned test dummy");
+		return true;
 	}
 
 	void SpawnTestDrop(PlayerBase source, string args)
@@ -1415,16 +1447,25 @@ class DAFDeathmatch
 		return position + "0 0.1 0";
 	}
 
-	vector GetTestDummyPosition(PlayerBase source)
+	vector GetTestDummyPosition(PlayerBase source, int index)
 	{
 		vector position;
 		if (source)
-			position = source.ModelToWorld("0 0 12");
+			position = source.ModelToWorld(GetTestDummyOffset(index));
 		else
 			position = m_CurrentArena.GetRandomPlayerSpawn();
 
 		position = DAFDMArena.SnapToGround(position);
 		return position + "0 0.1 0";
+	}
+
+	vector GetTestDummyOffset(int index)
+	{
+		int row = index / 3;
+		int col = index % 3;
+		float x = (col - 1) * 2.0;
+		float z = 12.0 + (row * 2.0);
+		return Vector(x, 0, z);
 	}
 
 	void EquipPlayer(PlayerBase player)
